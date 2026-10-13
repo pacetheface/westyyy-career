@@ -185,6 +185,30 @@ input:focus,textarea:focus{outline:none;border-color:var(--blue)}
 .editrow label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--mute);width:140px}
 a{color:var(--twitch);font-weight:700}
 
+/* SEASON GOAL */
+.goal{display:grid;gap:10px;padding:18px 20px;border-radius:18px;background:var(--deck);border:2px solid var(--line)}
+.goal .ghead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.goal .status{font-family:var(--display);font-size:clamp(20px,3.5vw,28px)}
+.goal .status.ahead{color:var(--mint)} .goal .status.ontrack{color:var(--gold)} .goal .status.behind{color:var(--orange)}
+.track2{position:relative;height:30px;border-radius:999px;background:#0008;border:2px solid #ffffff22;margin-top:18px}
+.track2>i{position:absolute;inset:0 auto 0 0;border-radius:999px;background:linear-gradient(90deg,var(--champ),var(--gc));animation:fill 1.2s cubic-bezier(.2,.8,.2,1)}
+.ghost{position:absolute;top:-22px;bottom:-6px;width:0;border-left:3px dashed var(--ink);opacity:.85}
+.ghost span{position:absolute;top:-2px;left:6px;font-size:11px;font-weight:700;white-space:nowrap;color:var(--ink)}
+.gstats{display:flex;flex-wrap:wrap;gap:8px}
+/* PRs */
+.prs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.pr{position:relative;padding:14px 16px;border-radius:16px;background:var(--deck2);border:2px solid var(--line);display:grid;gap:4px;overflow:hidden}
+.pr .pt{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.pr .pv{font-family:var(--display);font-size:30px;line-height:1.05;color:var(--c)}
+.pr .pd{font-size:12px;color:var(--mute);font-weight:600}
+.pr.new{border-color:var(--gold);box-shadow:0 0 0 3px #ffd23f33,0 0 24px #ffd23f44}
+.pr.new::after{content:"NEW PR";position:absolute;top:10px;right:-28px;transform:rotate(35deg);background:var(--gold);color:var(--night);font-family:var(--display);font-size:11px;padding:3px 32px}
+.cell.frozen{background:#1e4f7a55;border-color:#7fd4ff99}
+.cell .fz{font-size:18px;line-height:1}
+.freeze{display:inline-flex;gap:3px;align-items:center}
+.freeze i{font-style:normal;font-size:15px}
+.freeze i.off{opacity:.25;filter:grayscale(1)}
+
 /* SOCIALS */
 .fans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:22px}
 .fan{display:grid;gap:6px;padding:16px;border-radius:16px;background:#0b103099;border:2px solid var(--c);text-decoration:none;color:var(--ink);position:relative;overflow:hidden}
@@ -268,7 +292,7 @@ button.skill:hover{border-color:var(--blue)}
       <div class="herometa">
         <span class="chip">Career Lv <b id="lvl"></b></span>
         <span class="chip" id="lvlNext"></span>
-        <span class="chip">Check-in streak <span class="flame" id="ciStreak">0</span></span>
+        <span class="chip">Check-in streak <span class="flame" id="ciStreak">0</span><span class="freeze" id="ciFreeze" title="Streak freezes"></span></span>
       </div>
       <div class="bar sm" style="max-width:420px" aria-label="Progress to next career level"><i id="lvlBar"></i></div>
     </div>
@@ -304,6 +328,16 @@ button.skill:hover{border-color:var(--blue)}
     </div>
   </section>
 
+  <section class="goal" aria-labelledby="gTitle">
+    <div class="ghead">
+      <div><div class="eyebrow">Season goal · GC II in 2v2 by <span id="gEnd"></span></div><h2 id="gTitle" class="status" style="margin-top:4px"></h2></div>
+      <span class="chip" id="gDays"></span>
+    </div>
+    <div class="track2" role="img" id="gTrack"><i id="gBar"></i><div class="ghost" id="gGhost"><span>Pace</span></div></div>
+    <div class="ticks"><span id="gFrom"></span><span id="gTo"></span></div>
+    <div class="gstats" id="gStats"></div>
+  </section>
+
   <section class="panel" aria-labelledby="qTitle">
     <div class="sechead">
       <div><div class="eyebrow">Today's missions</div><h2 id="qTitle">Daily Quests</h2></div>
@@ -318,7 +352,7 @@ button.skill:hover{border-color:var(--blue)}
   <section class="panel" aria-labelledby="jTitle">
     <div class="sechead">
       <div><div class="eyebrow">How every day went</div><h2 id="jTitle">Player Journal</h2></div>
-      <span class="statrow"><span class="chip">Check-ins <b id="ciCount">0</b></span></span>
+      <span class="statrow"><span class="chip">Check-ins <b id="ciCount">0</b></span><span class="chip" id="freezeInfo"></span></span>
     </div>
     <div class="calwrap">
       <div>
@@ -332,11 +366,17 @@ button.skill:hover{border-color:var(--blue)}
           <span><i style="background:var(--gold)"></i>Today</span>
           <span><i style="background:var(--twitch)"></i>Streamed</span>
           <span><i style="background:var(--blue)"></i>Coach note</span>
+          <span>❄ Streak freeze used</span>
         </div>
       </div>
       <div class="day" id="dayPanel" aria-live="polite"></div>
     </div>
     <div class="insight" id="insight"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="prTitle">
+    <div class="sechead"><div><div class="eyebrow">Your best ever</div><h2 id="prTitle">Personal Records</h2></div><span class="chip" id="prCount"></span></div>
+    <div class="prs" id="prs"></div>
   </section>
 
   <section class="panel" aria-labelledby="ppTitle">
@@ -507,7 +547,7 @@ function renderStats(){
   }).join('');
   CARDS.forEach(([k])=>emblem($('em-'+k), tierColor(P[k].tier), tierLevel(P[k].tier)));
 
-  drawChart(); renderTrophies(); renderPowers(); renderSessions(); renderPath(); renderSocials(); renderStream();
+  drawChart(); renderTrophies(); renderPowers(); renderSessions(); renderPath(); renderSocials(); renderStream(); renderGoal(); renderPRs();
 }
 
 let cur='2v2';
@@ -576,6 +616,68 @@ function renderSessions(){
   }).join('');
 }
 
+// ================= SEASON GOAL =================
+const SEASON = { start:'2026-09-23', end:'2026-12-09', goal:1575, goalName:'GC II' }; // Season 24; end date is an estimate
+function histOn(key, date){ const h=DATA.hist[key]||[]; let v=null; for(const x of h){ if(x[0]<=date) v=x[1]; else break; } return v ?? (h[0]?h[0][1]:null); }
+function renderGoal(){
+  const now=DATA.playlists['2v2'].rating, start=histOn('2v2',SEASON.start)??now;
+  const t0=parseYmd(SEASON.start), t1=parseYmd(SEASON.end), today=parseYmd(TODAY);
+  const frac=Math.max(0,Math.min(1,(today-t0)/(t1-t0)));
+  const lo=Math.min(start,now)-20, hi=SEASON.goal, X=v=>Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));
+  const pace=start+(SEASON.goal-start)*frac, diff=Math.round(now-pace);
+  const daysLeft=Math.max(0,Math.round((t1-today)/864e5)), weeksLeft=Math.max(daysLeft/7,0.5);
+  const need=Math.max(0,Math.ceil((SEASON.goal-now)/weeksLeft));
+  const twoWk=new Date(today); twoWk.setDate(twoWk.getDate()-14); const was=histOn('2v2',ymd(twoWk));
+  const recent=was==null?null:Math.round((now-was)/2);
+  let cls,txt;
+  if(now>=SEASON.goal){ cls='ahead'; txt='Goal reached: GC II!'; }
+  else if(diff>=0){ cls='ahead'; txt=`Ahead of pace by ${diff} MMR`; }
+  else if(recent!=null && recent>=need*0.8){ cls='ontrack'; txt=`${-diff} MMR behind pace, but closing fast`; }
+  else { cls='behind'; txt=`${-diff} MMR behind pace`; }
+  $('gTitle').className='status '+cls; $('gTitle').textContent=txt;
+  $('gEnd').textContent=parseYmd(SEASON.end).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  $('gDays').innerHTML=`<b>${daysLeft}</b> days left`;
+  $('gBar').style.width=X(now)+'%';
+  $('gGhost').style.left=X(pace)+'%';
+  $('gTrack').setAttribute('aria-label',`2v2 at ${now}, pace line at ${Math.round(pace)}, goal ${SEASON.goal}`);
+  $('gFrom').textContent=`Season start ${fmt(start)}`; $('gTo').textContent=`${SEASON.goalName} ${fmt(SEASON.goal)}`;
+  $('gStats').innerHTML=`<span class="chip">Now <b>${fmt(now)}</b></span><span class="chip">Need <b>+${need}</b> a week</span>`+
+    (recent!=null?`<span class="chip">Last 2 weeks <b style="color:${recent>=need?'var(--mint)':'var(--orange)'}">${recent>=0?'+':''}${recent}</b> a week</span>`:'')+
+    `<span class="chip">≈ <b>${Math.ceil(need/MMR_PER_WIN)}</b> net wins a week</span>`;
+}
+
+// ================= PERSONAL RECORDS =================
+function bestDay(key){ const h=DATA.hist[key]||[]; let b=null; for(let i=1;i<h.length;i++){ const d=h[i][1]-h[i-1][1]; if(!b||d>b.v) b={v:d,date:h[i][0]}; } return b; }
+function bestWeek(key){ const h=DATA.hist[key]||[]; let b=null, j=0;
+  for(let i=0;i<h.length;i++){ const cut=parseYmd(h[i][0]); cut.setDate(cut.getDate()-7); while(j<i && parseYmd(h[j][0])<cut) j++; const d=h[i][1]-h[j][1]; if(!b||d>b.v) b={v:d,date:h[i][0]}; } return b; }
+function bestClimb(key){ const h=DATA.hist[key]||[]; let run=0,b={v:0,date:null};
+  for(let i=1;i<h.length;i++){ const d=h[i][1]-h[i-1][1]; if(d>0){ run++; if(run>b.v) b={v:run,date:h[i][0]}; } else if(d<0) run=0; } return b; }
+function seasonPeak(key){ const h=(DATA.hist[key]||[]).filter(x=>x[0]>=SEASON.start); let b=null; h.forEach(x=>{ if(!b||x[1]>b.v) b={v:x[1],date:x[0]}; }); return b; }
+function renderPRs(){
+  const day=s=>s?parseYmd(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+  const recs=[
+    ['2v2 all-time peak', DATA.peaks['2v2']?.rating, null, '#ff3d5a', DATA.peaks['2v2']?.tier],
+    ['2v2 season peak', seasonPeak('2v2'), 'v', '#b56cff'],
+    ['1v1 all-time peak', DATA.peaks['1v1']?.rating, null, '#2fa8ff', DATA.peaks['1v1']?.tier],
+    ['Best day · 2v2', bestDay('2v2'), '+', '#3ff0b4'],
+    ['Best day · 1v1', bestDay('1v1'), '+', '#3ff0b4'],
+    ['Best week · 2v2', bestWeek('2v2'), '+', '#ffd23f'],
+    ['Longest climb · 2v2', bestClimb('2v2'), 'days', '#ff8a1f'],
+    ['Longest check-in streak', STREAK.longest?{v:STREAK.longest,date:STREAK.longestEnd}:null, 'days', '#a970ff']
+  ].filter(r=>r[1]!=null && (typeof r[1]==='number' || r[1].v>0));
+  const seen=store.get('prSeen',null); const now={}; let fresh=[];
+  const html=recs.map(([t,r,kind,c,sub])=>{
+    const v=typeof r==='number'?r:r.v, date=typeof r==='object'?r.date:null; now[t]=v;
+    const isNew = (seen && seen[t]!=null && v>seen[t]) || (date && (parseYmd(TODAY)-parseYmd(date))/864e5<=2 && seen!==null);
+    if(seen && seen[t]!=null && v>seen[t]) fresh.push(t);
+    const shown = kind==='+'?`+${fmt(v)}`:kind==='days'?`${v} day${v===1?'':'s'}`:fmt(v);
+    return `<div class="pr${isNew?' new':''}" style="--c:${c}"><span class="pt">${t}</span><span class="pv num">${shown}</span><span class="pd">${sub?esc(sub):''}${sub&&date?' · ':''}${date?day(date):''}</span></div>`;
+  }).join('');
+  $('prs').innerHTML=html; $('prCount').innerHTML=`<b>${recs.length}</b> records`;
+  if(fresh.length && !renderPRs.celebrated){ renderPRs.celebrated=true; setTimeout(()=>{ burst(innerWidth/2, innerHeight/3); toast('NEW PR! '+fresh[0]); },600); }
+  if(S.db) store.set('prSeen',{...(seen||{}),...now});
+}
+
 // ================= PRO PATH =================
 function renderPath(){
   const P=DATA.playlists, pk=DATA.peaks['2v2'].rating, r2=P['2v2'].rating, r3=P['3v3'].rating;
@@ -635,13 +737,28 @@ function dayDelta(key, date){
   const i=h.findIndex(x=>x[0]===date); if(i<=0) return null;
   return h[i][1]-h[i-1][1];
 }
-function journalStreak(){
-  let n=0; const d=new Date(); if(!S.journal[ymd(d)]) d.setDate(d.getDate()-1);
-  while(S.journal[ymd(d)]){ n++; d.setDate(d.getDate()-1); } return n;
+// Duolingo-style streak: every 7 check-ins in a row earns a freeze (max 2); a missed day uses one automatically.
+const FREEZE_MAX=2, FREEZE_EVERY=7;
+function streakInfo(){
+  const dates=Object.keys(S.journal).sort(); const out={current:0,freezes:0,frozen:new Set(),longest:0,longestEnd:null,toNext:FREEZE_EVERY};
+  if(!dates.length) return out;
+  let streak=0, run=0, freezes=0; const d=parseYmd(dates[0]);
+  while(ymd(d)<=TODAY){
+    const ds=ymd(d);
+    if(S.journal[ds]){ streak++; run++; if(run%FREEZE_EVERY===0 && freezes<FREEZE_MAX) freezes++; }
+    else if(ds!==TODAY){ if(streak>0 && freezes>0){ freezes--; out.frozen.add(ds); run=0; } else { streak=0; run=0; } }
+    if(streak>out.longest){ out.longest=streak; out.longestEnd=ds; }
+    d.setDate(d.getDate()+1);
+  }
+  out.current=streak; out.freezes=freezes; out.toNext=freezes>=FREEZE_MAX?0:FREEZE_EVERY-(run%FREEZE_EVERY);
+  return out;
 }
+function journalStreak(){ return streakInfo().current; }
 let calMonth = new Date(); calMonth.setDate(1);
 let selDate = TODAY;
+let STREAK={current:0,freezes:0,frozen:new Set(),longest:0,toNext:7};
 function renderCal(){
+  STREAK=streakInfo();
   const y=calMonth.getFullYear(), m=calMonth.getMonth();
   $('calMonth').textContent = calMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   const first=new Date(y,m,1), offset=(first.getDay()+6)%7, days=new Date(y,m+1,0).getDate();
@@ -650,15 +767,19 @@ function renderCal(){
   for(let d=1; d<=days; d++){
     const ds=`${y}-${pad(m+1)}-${pad(d)}`, e=S.journal[ds], fut=ds>TODAY;
     const bg = e? `background:${MOODC[e.mood-1]}33;border-color:${MOODC[e.mood-1]}88` : '';
+    const fz = !e && STREAK.frozen.has(ds);
     const marks = (e&&e.streamMin>0?'<i style="background:var(--twitch)"></i>':'') + (S.notes[ds]?'<i style="background:var(--blue)"></i>':'');
-    h+=`<button class="cell${ds===TODAY?' today':''}${ds===selDate?' sel':''}${fut?' future':''}" data-d="${ds}" ${fut?'disabled':''} style="${bg}" aria-label="${ds}${e?', checked in':''}">
-      <span class="dn">${d}</span>${e?`<span class="fc">${FACES[e.mood-1][0]}</span>`:''}<span class="marks">${marks}</span></button>`;
+    h+=`<button class="cell${ds===TODAY?' today':''}${ds===selDate?' sel':''}${fut?' future':''}${fz?' frozen':''}" data-d="${ds}" ${fut?'disabled':''} style="${bg}" aria-label="${ds}${e?', checked in':fz?', streak freeze used':''}">
+      <span class="dn">${d}</span>${e?`<span class="fc">${FACES[e.mood-1][0]}</span>`:fz?'<span class="fz">❄</span>':''}<span class="marks">${marks}</span></button>`;
   }
   $('cal').innerHTML=h;
   $('calNext').disabled = (y>new Date().getFullYear()) || (y===new Date().getFullYear() && m>=new Date().getMonth());
   renderDay(); renderInsight();
   $('ciCount').textContent = Object.keys(S.journal).length;
-  $('ciStreak').textContent = journalStreak();
+  $('ciStreak').textContent = STREAK.current;
+  $('ciFreeze').innerHTML = Array.from({length:FREEZE_MAX},(_,i)=>`<i class="${i<STREAK.freezes?'':'off'}">❄</i>`).join('');
+  $('freezeInfo').innerHTML = STREAK.freezes>=FREEZE_MAX ? `Freezes <b>${STREAK.freezes}/${FREEZE_MAX}</b> · full` : `Freezes <b>${STREAK.freezes}/${FREEZE_MAX}</b> · next in ${STREAK.toNext} day${STREAK.toNext===1?'':'s'}`;
+  renderPRs();
   const doneToday = !!S.journal[TODAY];
   $('checkinBtn').classList.toggle('done', doneToday);
   $('checkinSub').textContent = doneToday ? 'Done today · tap to edit' : '4 quick questions';
