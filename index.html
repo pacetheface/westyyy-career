@@ -185,6 +185,22 @@ input:focus,textarea:focus{outline:none;border-color:var(--blue)}
 .editrow label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--mute);width:140px}
 a{color:var(--twitch);font-weight:700}
 
+/* SOCIALS */
+.fans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:22px}
+.fan{display:grid;gap:6px;padding:16px;border-radius:16px;background:#0b103099;border:2px solid var(--c);text-decoration:none;color:var(--ink);position:relative;overflow:hidden}
+.fan::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--g,var(--c))}
+.fan:hover{transform:translateY(-2px)}
+.fan:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.fan .pn{font-family:var(--display);font-size:18px;color:var(--c)}
+.fan .hd{font-size:13px;color:var(--mute);font-weight:600}
+.fan .fc{font-family:var(--display);font-size:34px;line-height:1}
+.fan .fd{font-size:13px;font-weight:700;color:var(--mint)}
+.fan .fd.flat{color:var(--mute)}
+.fan .bar>i{background:var(--g,var(--c));box-shadow:none}
+.fan .nx{font-size:12px;color:var(--mute);font-weight:600}
+.fanhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.fanhead .big{font-family:var(--display);font-size:clamp(30px,6vw,46px);line-height:1;background:linear-gradient(90deg,#ff4fa3,#a970ff,#2fa8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+
 /* SKILLS */
 .skilltiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .tier{display:grid;gap:8px;align-content:start}
@@ -344,15 +360,16 @@ button.skill:hover{border-color:var(--blue)}
 
   <section class="panel stream" aria-labelledby="stTitle">
     <div class="sechead">
-      <div><div class="eyebrow" style="color:#cdb6ff">Live with Dad on Twitch</div><h2 id="stTitle">Stream Room</h2></div>
-      <a href="https://www.twitch.tv/westyyywest" target="_blank" rel="noopener">twitch.tv/westyyywest ↗</a>
+      <div><div class="eyebrow" style="color:#cdb6ff">Content with Dad · @westyyywest everywhere</div><h2 id="stTitle">Fan Club</h2></div>
+      <span class="chip" id="fanUpdated"></span>
     </div>
-    <h3 style="margin-bottom:10px">Road to Affiliate <span class="muted" style="font-family:var(--body)">· last 30 days</span></h3>
+    <div class="fanhead"><span class="big num" id="fanTotal">0</span><span style="font-weight:700">total followers</span><span class="chip" id="fanWeek"></span></div>
+    <div class="fans" id="fans"></div>
+    <h3 style="margin-bottom:10px">Twitch: Road to Affiliate <span class="muted" style="font-family:var(--body)">· last 30 days</span></h3>
     <div class="meters" id="meters"></div>
     <div class="streamtop" id="streamTop"></div>
     <div class="editrow" id="streamEdit" hidden>
-      <label for="stFollowers">Followers<input type="number" id="stFollowers" min="0"></label>
-      <label for="stViewers">Avg viewers<input type="number" id="stViewers" min="0" step="0.1"></label>
+            <label for="stViewers">Avg viewers<input type="number" id="stViewers" min="0" step="0.1"></label>
       <button class="btn primary" id="stSave" type="button">Update</button>
     </div>
   </section>
@@ -490,7 +507,7 @@ function renderStats(){
   }).join('');
   CARDS.forEach(([k])=>emblem($('em-'+k), tierColor(P[k].tier), tierLevel(P[k].tier)));
 
-  drawChart(); renderTrophies(); renderPowers(); renderSessions(); renderPath();
+  drawChart(); renderTrophies(); renderPowers(); renderSessions(); renderPath(); renderSocials(); renderStream();
 }
 
 let cur='2v2';
@@ -766,19 +783,47 @@ function renderStream(){
   const cut=new Date(); cut.setDate(cut.getDate()-30); const c=ymd(cut);
   const recent=Object.entries(S.journal).filter(([d,e])=>d>c && e.streamMin>0);
   const mins=recent.reduce((a,[,e])=>a+e.streamMin,0), days=recent.length;
-  const fol=+S.stream.followers||0, viw=+S.stream.avgViewers||0;
+  const fol=(typeof DATA.socials?.tw==='number'?DATA.socials.tw:+S.stream.followers)||0, viw=+S.stream.avgViewers||0;
   const M=[['Followers',fol,25,''],['Hours live',+(mins/60).toFixed(1),4,'h'],['Stream days',days,4,''],['Avg viewers',viw,3,'']];
   $('meters').innerHTML=M.map(([l,v,t,u])=>`<div class="meter${v>=t?' ok':''}"><div class="l">${l}</div><div class="v num">${v}${u}<small> / ${t}${u}</small></div><div class="bar sm"><i style="width:${Math.max(3,Math.min(100,v/t*100))}%"></i></div></div>`).join('');
   const all=Object.values(S.journal).filter(e=>e.streamMin>0);
   const month=TODAY.slice(0,7), thisMonth=Object.entries(S.journal).filter(([d,e])=>d.startsWith(month)&&e.streamMin>0).length;
   const met=M.filter(([,v,t])=>v>=t).length;
   $('streamTop').innerHTML=`<span class="chip">Streams this month <b>${thisMonth}</b></span><span class="chip">Total hours live <b>${(all.reduce((a,e)=>a+e.streamMin,0)/60).toFixed(1)}</b></span><span class="chip">Affiliate goals met <b>${met}/4</b></span>
-    <span class="muted">Hours and days come from check-ins where "Streamed" is tapped.</span>`;
+    <span class="muted">Followers update nightly. Hours and days come from check-ins where "Streamed" is tapped. Type average viewers from your Twitch dashboard.</span>`;
   $('streamEdit').hidden = !(S.db && S.canWrite);
-  if(document.activeElement!==$('stFollowers')) $('stFollowers').value = S.stream.followers ?? '';
-  if(document.activeElement!==$('stViewers')) $('stViewers').value = S.stream.avgViewers ?? '';
+    if(document.activeElement!==$('stViewers')) $('stViewers').value = S.stream.avgViewers ?? '';
 }
-$('stSave').onclick=async()=>{ const v={followers:+$('stFollowers').value||0, avgViewers:+$('stViewers').value||0}; try{ await api('saveStream', v); S.stream=v; renderStream(); toast('Stream stats updated'); }catch(e){ toast(errMsg(e)); } };
+$('stSave').onclick=async()=>{ const v={followers:+S.stream.followers||0, avgViewers:+$('stViewers').value||0}; try{ await api('saveStream', v); S.stream=v; renderStream(); toast('Stream stats updated'); }catch(e){ toast(errMsg(e)); } };
+
+// ================= SOCIALS =================
+const SOCIALS=[['yt','YouTube','https://www.youtube.com/@westyyywest','#ff3d3d',null],['tt','TikTok','https://www.tiktok.com/@westyyywest','#25f4ee','linear-gradient(90deg,#25f4ee,#fe2c55)'],
+  ['ig','Instagram','https://www.instagram.com/westyyywest/','#ff4fa3','linear-gradient(90deg,#feda75,#fa7e1e,#d62976,#962fbf)'],['tw','Twitch','https://www.twitch.tv/westyyywest','#a970ff',null]];
+const MILES=[50,100,250,500,1000,1500,2000,2500,5000,7500,10000,15000,20000,25000,50000,75000,100000,250000,500000,1000000];
+const short=n=>n>=1e6?(n/1e6).toFixed(n%1e6?1:0)+'M':n>=1e4?(n/1e3).toFixed(n%1e3?1:0)+'K':fmt(n);
+function socialWeek(key){
+  const h=DATA.hist?.followers; if(!h||!h.length) return null;
+  const last=h[h.length-1]; const cut=parseYmd(last[0]); cut.setDate(cut.getDate()-7);
+  const prev=[...h].reverse().find(x=>parseYmd(x[0])<=cut && x[1]?.[key]!=null); if(!prev||last[1]?.[key]==null) return null;
+  return last[1][key]-prev[1][key];
+}
+function renderSocials(){
+  const s=DATA.socials||{}; let total=0, wk=0, wkKnown=false;
+  $('fans').innerHTML=SOCIALS.map(([k,name,url,c,g])=>{
+    const v=s[k]; const has=typeof v==='number'; if(has) total+=v;
+    const d=socialWeek(k); if(d!=null){ wk+=d; wkKnown=true; }
+    const next=has?MILES.find(m=>m>v):null, prev=has?([0,...MILES].filter(m=>m<=v).pop()):0;
+    return `<a class="fan" href="${url}" target="_blank" rel="noopener" style="--c:${c};${g?`--g:${g}`:''}">
+      <span class="pn">${name}</span><span class="hd">@westyyywest ↗</span>
+      <span class="fc num">${has?fmt(v):'—'}</span>
+      <span class="fd${d>0?'':' flat'}">${d==null?'Weekly change shows after 7 days':(d>0?'+':'')+fmt(d)+' this week'}</span>
+      ${has?`<div class="bar sm"><i style="width:${Math.max(3,(v-prev)/(next-prev)*100)}%"></i></div><span class="nx num">${fmt(next-v)} to ${short(next)}</span>`:''}
+    </a>`;
+  }).join('');
+  $('fanTotal').textContent=fmt(total);
+  $('fanWeek').innerHTML=wkKnown?`This week <b>${wk>=0?'+':''}${fmt(wk)}</b>`:'Counts refresh every night';
+  $('fanUpdated').textContent=s.updated?'Updated '+new Date(s.updated).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+}
 
 // ================= SKILLS =================
 const SKILLS = [
