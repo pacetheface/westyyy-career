@@ -185,6 +185,15 @@ input:focus,textarea:focus{outline:none;border-color:var(--blue)}
 .editrow label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--mute);width:140px}
 a{color:var(--twitch);font-weight:700}
 
+/* TODAY STRIP (check-in) */
+.today{display:grid;gap:8px;padding:12px 14px;border-radius:14px;background:linear-gradient(120deg,#1f2a8a,#2a1960);border:2px solid #ffffff22}
+.today .tl{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#cdd4ff}
+.today .tn{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline}
+.today .tn span{font-weight:700;font-size:14px}
+.today .tn b{font-family:var(--display);font-weight:400;font-size:22px;margin-right:4px}
+.today .up{color:var(--mint)} .today .dn{color:var(--orange)}
+.today .none{font-size:13px;color:#cdd4ff}
+
 /* REFRESH */
 .refresh{cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;background:var(--deck2);border:2px solid var(--blue);color:var(--ink);font:inherit;font-weight:700;font-size:13px}
 .refresh:hover{background:#1f2f7a}
@@ -472,6 +481,7 @@ button.skill:hover{border-color:var(--blue)}
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
     <div class="steps" id="mSteps"></div>
     <div class="eyebrow" id="mDate"></div>
+    <div class="today" id="mToday"></div>
     <div id="mBody"></div>
     <div class="mnav">
       <button class="btn" id="mBack" type="button">Back</button>
@@ -743,6 +753,26 @@ const FEEL = ['Focused','Hyped','Calm','Proud','Confident','Tired','Nervous','Fr
 const WELL_S = ['Good rotations','Won my 50/50s','Stayed calm after losing','Hit an aerial goal','Big saves','Smart boost use','Talked well with my teammate'];
 const FIX_S = ['Overcommitting','Running out of boost','Ball chasing','Tilting after goals','Missing open nets','Slow recoveries','Not rotating back post'];
 
+// Games, wins and goals from Tracker sessions that started on this (local) date
+function dayResults(date){
+  const out={games:0,wins:0,goals:0,saves:0,mvps:0};
+  (DATA.ses||[]).forEach(s=>{ if(!s.start || ymd(new Date(s.start))!==date) return;
+    (s.m||[]).forEach(m=>{ if(m.pl==='Multiple') return; out.games+=m.mp||0; out.wins+=m.w||0; out.goals+=m.g||0; out.saves+=m.sv||0; out.mvps+=m.mvp||0; }); });
+  return out;
+}
+function renderToday(date){
+  const r=dayResults(date), ch=[['2v2',dayDelta('2v2',date)],['1v1',dayDelta('1v1',date)]].filter(x=>x[1]!==null&&x[1]!==0);
+  const label=date===TODAY?'Your games today':'Your games that day';
+  const asOf=DATA.updated?new Date(DATA.updated):null;
+  const asOfTxt=asOf?` · stats as of ${asOf.toLocaleDateString('en-US',{weekday:'short'})} ${asOf.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}`:'';
+  if(!r.games && !ch.length){
+    $('mToday').innerHTML=`<div class="tl">${label}${asOfTxt}</div><div class="none">${date===TODAY?'No games recorded yet. Stats update every evening at 20:40.':'No games recorded that day.'}</div>`;
+    return;
+  }
+  const mmr=ch.map(([k,v])=>`<span class="${v>0?'up':'dn'}"><b>${v>0?'+':''}${v}</b>${k}</span>`).join('');
+  $('mToday').innerHTML=`<div class="tl">${label}${asOfTxt}</div><div class="tn">
+    ${r.games?`<span><b>${r.games}</b>games</span><span><b>${r.wins}</b>wins</span><span><b>${r.goals}</b>goals</span>${r.mvps?`<span><b>${r.mvps}</b>MVP${r.mvps>1?'s':''}</span>`:''}`:''}${mmr}</div>`;
+}
 function dayDelta(key, date){
   const h=DATA.hist[key]; if(!h) return null;
   const i=h.findIndex(x=>x[0]===date); if(i<=0) return null;
@@ -860,6 +890,7 @@ $('overlay').addEventListener('click',e=>{ if(e.target.id==='overlay') closeChec
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('overlay').hidden) closeCheckin(); });
 function renderStep(){
   $('mSteps').innerHTML=[0,1,2,3].map(i=>`<i class="${i<=step?'on':''}"></i>`).join('');
+  renderToday(draft.date);
   $('mDate').textContent = (draft.date===TODAY?'Today · ':'')+parseYmd(draft.date).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+` · step ${step+1} of 4`;
   const chips=(list,sel,key)=>`<div class="chips">${list.map(t=>`<button type="button" class="chipbtn" data-k="${key}" data-v="${esc(t)}" aria-pressed="${sel.includes(t)}">${esc(t)}</button>`).join('')}</div>`;
   let b='';
