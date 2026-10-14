@@ -129,7 +129,7 @@ function requestRefresh() {
     const res = UrlFetchApp.fetch('https://api.anthropic.com/v1/claude_code/routines/' + TASK_ID + '/fire', {
       method: 'post', contentType: 'application/json', muteHttpExceptions: true,
       headers: { 'Authorization': 'Bearer ' + token, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'experimental-cc-routine-2026-04-01' },
-      payload: JSON.stringify({ text: 'On-demand refresh requested by West from his tracker page. Game stats only: skip step 2 (followers) entirely and pass null for every platform in SOC.' })
+      payload: JSON.stringify({ text: 'ON-DEMAND RUN requested by West with the Refresh button on his tracker page. This overrides the morning schedule logic: ignore the EARLY/LAST attempt rules, SKIP step 2 (the already-done check) and SKIP step 3 (followers). Open the Tracker tab and run the step 4 script with SOC left as all null, so follower counts keep their last values. If the browser cannot be reached, stop silently (the page tells West). Only send a message if the step 4 reply is a backend error or a refused permission.' })
     });
     if (res.getResponseCode() !== 200) throw new Error('Could not start the refresh (' + res.getResponseCode() + ')');
     const today = Utilities.formatDate(new Date(), 'Europe/Berlin', 'yyyy-MM-dd');
