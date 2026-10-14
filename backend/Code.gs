@@ -13,6 +13,9 @@ const SHEET_ID = '1Epm62GiqbEFfjQMROd-Yix6_pKwzF_4DV9vhf9paoFI';
 const FAMILY_CODE = 'SET_IN_APPS_SCRIPT_ONLY';
 const COACH_PIN_HASH = 'SET_IN_APPS_SCRIPT_ONLY';
 const REFRESH_KEY = 'SET_IN_APPS_SCRIPT_ONLY';
+const TASK_ID = 'trig_01F2ZHHpFvy9Nr3y8j273u83';                       // the nightly refresh scheduled task
+const REFRESH_PER_DAY = 3, REFRESH_GAP_MIN = 30;                       // limits for West's Refresh button
+// The scheduled task's API token goes in Project Settings > Script Properties as ROUTINE_TOKEN (never in code).
 // ====================
 
 const J_HEAD = ['Date', 'Mood (1-5)', 'What I did', 'Anything else', 'Stream minutes', 'Feelings', 'Did well', 'To fix', 'Saved at'];
@@ -29,7 +32,7 @@ function doGet(e) {
   return json_({ ok: true, app: 'Westyyy Career Mode API' });
 }
 
-const ACTIONS = { getAll, saveCheckin, saveStream, coachLogin, saveFocus, saveNote, saveSkills };
+const ACTIONS = { getAll, saveCheckin, saveStream, coachLogin, saveFocus, saveNote, saveSkills, requestRefresh };
 
 function doPost(e) {
   let body;
@@ -58,7 +61,8 @@ function getAll() {
     notes: readNotes_(),
     focus: prop_('FOCUS', null),
     skills: prop_('SKILLS', {}),
-    stream: prop_('STREAM', {})
+    stream: prop_('STREAM', {}),
+    refresh: refreshState_()
   };
 }
 
@@ -105,6 +109,36 @@ function saveSkills(pin, skills) {
   Object.keys(skills || {}).slice(0, 50).forEach(k => { if (/^[a-z0-9]{2,20}$/.test(k) && /^\d{4}-\d{2}-\d{2}$/.test(skills[k])) clean[k] = skills[k]; });
   P().setProperty('SKILLS', JSON.stringify(clean));
   return true;
+}
+
+// West's Refresh button: starts the stats refresh scheduled task through its API trigger.
+function refreshState_() {
+  const today = Utilities.formatDate(new Date(), 'Europe/Berlin', 'yyyy-MM-dd');
+  const s = prop_('REFRESH_LOG', { day: today, count: 0, last: 0 });
+  if (s.day !== today) { s.day = today; s.count = 0; }
+  const next = s.last ? s.last + REFRESH_GAP_MIN * 60000 : 0;
+  return { last: s.last, left: Math.max(0, REFRESH_PER_DAY - s.count), nextAt: next > Date.now() ? next : 0, configured: !!P().getProperty('ROUTINE_TOKEN') };
+}
+function requestRefresh() {
+  return withLock_(() => {
+    const token = P().getProperty('ROUTINE_TOKEN');
+    if (!token) throw new Error('Refresh button isn\'t set up yet (missing token)');
+    const st = refreshState_();
+    if (st.left <= 0) throw new Error('No refreshes left today. Stats still update tonight.');
+    if (st.nextAt) throw new Error('Refresh already running. Try again in ' + Math.ceil((st.nextAt - Date.now()) / 60000) + ' min.');
+    const res = UrlFetchApp.fetch('https://api.anthropic.com/v1/claude_code/routines/' + TASK_ID + '/fire', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { 'Authorization': 'Bearer ' + token, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'experimental-cc-routine-2026-04-01' },
+      payload: JSON.stringify({ text: 'On-demand refresh requested by West from his tracker page. Game stats only: skip step 2 (followers) entirely and pass null for every platform in SOC.' })
+    });
+    if (res.getResponseCode() !== 200) throw new Error('Could not start the refresh (' + res.getResponseCode() + ')');
+    const today = Utilities.formatDate(new Date(), 'Europe/Berlin', 'yyyy-MM-dd');
+    const s = prop_('REFRESH_LOG', { day: today, count: 0, last: 0 });
+    if (s.day !== today) { s.day = today; s.count = 0; }
+    s.count++; s.last = Date.now();
+    P().setProperty('REFRESH_LOG', JSON.stringify(s));
+    return refreshState_();
+  });
 }
 
 // Optional: run from the editor to check the Sheet connection.

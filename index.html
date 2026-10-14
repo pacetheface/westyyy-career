@@ -185,6 +185,16 @@ input:focus,textarea:focus{outline:none;border-color:var(--blue)}
 .editrow label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--mute);width:140px}
 a{color:var(--twitch);font-weight:700}
 
+/* REFRESH */
+.refresh{cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;background:var(--deck2);border:2px solid var(--blue);color:var(--ink);font:inherit;font-weight:700;font-size:13px}
+.refresh:hover{background:#1f2f7a}
+.refresh:disabled{opacity:.55;cursor:default}
+.refresh:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.refresh .ic{display:inline-block;font-size:15px;line-height:1}
+.refresh.busy .ic{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.refresh small{font-weight:600;color:var(--mute)}
+
 /* SEASON GOAL */
 .goal{display:grid;gap:10px;padding:18px 20px;border-radius:18px;background:var(--deck);border:2px solid var(--line)}
 .goal .ghead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
@@ -292,6 +302,7 @@ button.skill:hover{border-color:var(--blue)}
       <div class="herometa">
         <span class="chip">Career Lv <b id="lvl"></b></span>
         <span class="chip" id="lvlNext"></span>
+        <button class="refresh" id="refreshBtn" type="button" hidden><span class="ic">↻</span><span id="refreshTxt">Refresh stats</span><small id="refreshSub"></small></button>
         <span class="chip">Check-in streak <span class="flame" id="ciStreak">0</span><span class="freeze" id="ciFreeze" title="Streak freezes"></span></span>
       </div>
       <div class="bar sm" style="max-width:420px" aria-label="Progress to next career level"><i id="lvlBar"></i></div>
@@ -997,11 +1008,42 @@ async function submitGate(){
 }
 $('gateGo').onclick=submitGate; $('gateIn').addEventListener('keydown',e=>{ if(e.key==='Enter') submitGate(); });
 const errMsg=e=>(e&&e.message)?String(e.message).replace(/^Exception:\s*/,''):'Could not save, try again';
+// ---------- Refresh button ----------
+let RF={state:null, waitingSince:0, timer:null};
+const ago=ts=>{ const m=Math.round((Date.now()-ts)/60000); return m<1?'just now':m<60?m+' min ago':Math.round(m/60)+' h ago'; };
+function renderRefresh(){
+  const b=$('refreshBtn'), st=RF.state; if(!st||!st.configured){ b.hidden=true; return; } b.hidden=false;
+  const upd=DATA.updated?new Date(DATA.updated).getTime():0;
+  if(RF.waitingSince){ b.disabled=true; b.classList.add('busy'); $('refreshTxt').textContent='Refreshing…'; $('refreshSub').textContent='about 3–5 min'; return; }
+  b.classList.remove('busy');
+  const cool=st.nextAt && st.nextAt>Date.now();
+  b.disabled = st.left<=0 || cool;
+  $('refreshTxt').textContent = st.left<=0 ? 'Refreshes used up today' : cool ? 'Refresh again in '+Math.ceil((st.nextAt-Date.now())/60000)+' min' : 'Refresh stats';
+  $('refreshSub').textContent = upd ? '· updated '+ago(upd) : '';
+}
+async function doRefresh(){
+  try{ RF.state=await api('requestRefresh'); RF.waitingSince=Date.now(); renderRefresh(); toast('Refresh started!'); pollRefresh(); }
+  catch(e){ toast(errMsg(e)); try{ applyAll(await api('getAll')); }catch(_){} }
+}
+function pollRefresh(){
+  clearTimeout(RF.timer);
+  RF.timer=setTimeout(async()=>{
+    let d; try{ d=await api('getAll'); }catch(e){ return pollRefresh(); }
+    const upd=d.stats?.current?.updated?new Date(d.stats.current.updated).getTime():0;
+    if(upd>RF.waitingSince){ RF.waitingSince=0; applyAll(d); burst(innerWidth/2,120); toast('Stats updated!'); return; }
+    if(Date.now()-RF.waitingSince>12*60000){ RF.waitingSince=0; applyAll(d); toast('Refresh didn\'t finish. Dad\'s computer may be off.'); return; }
+    pollRefresh();
+  },30000);
+}
+$('refreshBtn').onclick=doRefresh;
+setInterval(()=>{ if(!RF.waitingSince) renderRefresh(); },60000);
+
 function applyAll(d){
   if(d.stats&&d.stats.current){ DATA={...DATA,...d.stats.current,hist:{...DATA.hist,...d.stats.hist}}; }
   S.journal={}; (d.journal||[]).forEach(e=>{ if(e.mood) S.journal[e.date]=e; });
   S.notes=d.notes||{}; S.focus=d.focus; S.skills=d.skills||{}; S.stream=d.stream||{}; S.hasPin=!!d.hasPin;
-  S.db=true; renderStats(); renderShared(); renderCoachBar();
+  RF.state=d.refresh||null;
+  S.db=true; renderStats(); renderShared(); renderCoachBar(); renderRefresh();
   if(S.pin && !S.isCoach) verifyPin(S.pin, true);
 }
 async function load(){ if(!FAMILY){ showGate(); return; } try{ applyAll(await api('getAll')); }catch(e){ console.warn(e); } }
