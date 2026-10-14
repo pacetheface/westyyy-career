@@ -13,8 +13,8 @@ const SHEET_ID = '1Epm62GiqbEFfjQMROd-Yix6_pKwzF_4DV9vhf9paoFI';
 const FAMILY_CODE = 'SET_IN_APPS_SCRIPT_ONLY';
 const COACH_PIN_HASH = 'SET_IN_APPS_SCRIPT_ONLY';
 const REFRESH_KEY = 'SET_IN_APPS_SCRIPT_ONLY';
-const TASK_ID = 'trig_01F2ZHHpFvy9Nr3y8j273u83';                       // the nightly refresh scheduled task
-const REFRESH_PER_DAY = 3, REFRESH_GAP_MIN = 30;                       // limits for West's Refresh button
+const TASK_ID = 'trig_01VLEhtrrssRTW7AeFoMud3y';                       // 'Westyyy refresh button' relay task (starts the stats refresh)
+const REFRESH_PER_DAY = 2, REFRESH_GAP_MIN = 30;                       // limits for West's Refresh button
 // The scheduled task's API token goes in Project Settings > Script Properties as ROUTINE_TOKEN (never in code).
 // ====================
 
@@ -129,7 +129,7 @@ function requestRefresh() {
     const res = UrlFetchApp.fetch('https://api.anthropic.com/v1/claude_code/routines/' + TASK_ID + '/fire', {
       method: 'post', contentType: 'application/json', muteHttpExceptions: true,
       headers: { 'Authorization': 'Bearer ' + token, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'experimental-cc-routine-2026-04-01' },
-      payload: JSON.stringify({ text: 'ON-DEMAND RUN requested by West with the Refresh button on his tracker page. This overrides the morning schedule logic: ignore the EARLY/LAST attempt rules, SKIP step 2 (the already-done check) and SKIP step 3 (followers). Open the Tracker tab and run the step 4 script with SOC left as all null, so follower counts keep their last values. If the browser cannot be reached, stop silently (the page tells West). Only send a message if the step 4 reply is a backend error or a refused permission.' })
+      payload: JSON.stringify({ text: 'Refresh button pressed on the tracker page.' })
     });
     if (res.getResponseCode() !== 200) throw new Error('Could not start the refresh (' + res.getResponseCode() + ')');
     const today = Utilities.formatDate(new Date(), 'Europe/Berlin', 'yyyy-MM-dd');
