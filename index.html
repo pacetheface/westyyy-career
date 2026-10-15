@@ -185,6 +185,17 @@ input:focus,textarea:focus{outline:none;border-color:var(--blue)}
 .editrow label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--mute);width:140px}
 a{color:var(--twitch);font-weight:700}
 
+/* DAY RESULTS TABLE (journal) */
+.dres{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.dres th{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);text-align:right;padding:4px 6px}
+.dres th:first-child,.dres td:first-child{text-align:left}
+.dres td{padding:7px 6px;text-align:right;font-weight:700;border-top:1px solid var(--line)}
+.dres td.mode{font-family:var(--display);font-weight:400}
+.dres .w{color:var(--mint)} .dres .l{color:var(--orange)}
+.dres .up{color:var(--mint)} .dres .dn{color:var(--orange)}
+.dres tr.tot td{border-top:2px solid var(--line);color:var(--mute)}
+.est{font-size:11px;color:var(--mute);font-weight:600}
+
 /* TODAY STRIP (check-in) */
 .today{display:grid;gap:8px;padding:12px 14px;border-radius:14px;background:linear-gradient(120deg,#1f2a8a,#2a1960);border:2px solid #ffffff22}
 .today .tl{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#cdd4ff}
@@ -753,6 +764,25 @@ const FEEL = ['Focused','Hyped','Calm','Proud','Confident','Tired','Nervous','Fr
 const WELL_S = ['Good rotations','Won my 50/50s','Stayed calm after losing','Hit an aerial goal','Big saves','Smart boost use','Talked well with my teammate'];
 const FIX_S = ['Overcommitting','Running out of boost','Ball chasing','Tilting after goals','Missing open nets','Slow recoveries','Not rotating back post'];
 
+// Per-day games/wins/losses by mode, saved nightly (hist.days), plus MMR change from rating history
+function dayModes(date){
+  const days=DATA.hist?.days; let rec=null;
+  if(Array.isArray(days)){ const f=days.find(x=>x[0]===date); rec=f?f[1]:null; }
+  return ['2v2','1v1','3v3'].map(k=>{ const r=rec&&rec[k]; const mmr=(r&&typeof r.d==='number')?r.d:dayDelta(k,date);
+    return {k, g:r?r.g:0, w:r?r.w:0, l:r?r.l:0, est:!!(r&&r.est), mmr}; }).filter(x=>x.g>0 || (x.mmr!==null && x.mmr!==0));
+}
+function dayTable(rows){
+  if(!rows.length) return '';
+  const sgn=v=>v===null?'—':`<span class="${v>0?'up':v<0?'dn':''}">${v>0?'+':''}${v}</span>`;
+  const est=rows.some(r=>r.est);
+  let h=`<div style="overflow-x:auto"><table class="dres"><thead><tr><th>Mode</th><th>Games</th><th>Wins</th><th>Losses</th><th>MMR</th></tr></thead><tbody>`;
+  rows.forEach(r=>{ h+=`<tr><td class="mode">${r.k}</td><td>${r.g||'—'}</td><td class="w">${r.g?(r.est?'≈':'')+r.w:'—'}</td><td class="l">${r.g?(r.est?'≈':'')+r.l:'—'}</td><td>${sgn(r.mmr)}</td></tr>`; });
+  if(rows.length>1){ const T=rows.reduce((a,r)=>({g:a.g+r.g,w:a.w+r.w,l:a.l+r.l}),{g:0,w:0,l:0});
+    h+=`<tr class="tot"><td>Total</td><td>${T.g}</td><td>${est?'≈':''}${T.w}</td><td>${est?'≈':''}${T.l}</td><td></td></tr>`; }
+  h+=`</tbody></table></div>`;
+  if(est) h+=`<div class="est">≈ some wins estimated from the rating change</div>`;
+  return h;
+}
 // Games, wins and goals from Tracker sessions that started on this (local) date
 function dayResults(date){
   const out={games:0,wins:0,goals:0,saves:0,mvps:0};
@@ -761,7 +791,9 @@ function dayResults(date){
   return out;
 }
 function renderToday(date){
-  const r=dayResults(date), ch=[['2v2',dayDelta('2v2',date)],['1v1',dayDelta('1v1',date)]].filter(x=>x[1]!==null&&x[1]!==0);
+  const r=dayResults(date), rows=dayModes(date), ch=rows.filter(x=>x.mmr!==null&&x.mmr!==0).map(x=>[x.k,x.mmr]);
+  const T=rows.reduce((a,x)=>({g:a.g+x.g,w:a.w+x.w,l:a.l+x.l,est:a.est||x.est}),{g:0,w:0,l:0,est:false});
+  if(T.g){ r.games=T.g; r.wins=T.w; r.losses=T.l; r.est=T.est; } else { r.losses=r.games-r.wins; }
   const label=date===TODAY?'Your games today':'Your games that day';
   const asOf=DATA.updated?new Date(DATA.updated):null;
   const asOfTxt=asOf?` · stats as of ${asOf.toLocaleDateString('en-US',{weekday:'short'})} ${asOf.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}`:'';
@@ -771,7 +803,7 @@ function renderToday(date){
   }
   const mmr=ch.map(([k,v])=>`<span class="${v>0?'up':'dn'}"><b>${v>0?'+':''}${v}</b>${k}</span>`).join('');
   $('mToday').innerHTML=`<div class="tl">${label}${asOfTxt}</div><div class="tn">
-    ${r.games?`<span><b>${r.games}</b>games</span><span><b>${r.wins}</b>wins</span><span><b>${r.goals}</b>goals</span>${r.mvps?`<span><b>${r.mvps}</b>MVP${r.mvps>1?'s':''}</span>`:''}`:''}${mmr}</div>`;
+    ${r.games?`<span><b>${r.games}</b>games</span><span class="up"><b>${r.est?'≈':''}${r.wins}</b>wins</span><span class="dn"><b>${r.est?'≈':''}${r.losses}</b>losses</span>${r.goals?`<span><b>${r.goals}</b>goals</span>`:''}${r.mvps?`<span><b>${r.mvps}</b>MVP${r.mvps>1?'s':''}</span>`:''}`:''}${mmr}</div>`;
 }
 function dayDelta(key, date){
   const h=DATA.hist[key]; if(!h) return null;
@@ -834,7 +866,9 @@ function renderDay(){
   const d2=dayDelta('2v2',selDate), d1=dayDelta('1v1',selDate), d3=dayDelta('3v3',selDate);
   const auto=[['2v2',d2],['1v1',d1],['3v3',d3]].filter(x=>x[1]!==null&&x[1]!==0).map(([k,v])=>`<span class="chip">${k} <b style="color:${v>=0?'var(--mint)':'var(--orange)'}">${v>0?'+':''}${v}</b></span>`).join('');
   let h=`<div class="dhead"><div><div class="eyebrow">${selDate===TODAY?'Today':dt.toLocaleDateString('en-US',{weekday:'long'})}</div><h3>${dt.toLocaleDateString('en-US',{month:'long',day:'numeric'})}</h3></div>${e?`<span class="bigface" title="${FACES[e.mood-1][1]}">${FACES[e.mood-1][0]}</span>`:''}</div>`;
-  if(auto) h+=`<div><div class="qa"><span class="q">Rating that day</span></div><div class="autostats" style="margin-top:4px">${auto}</div></div>`;
+  const tbl=dayTable(dayModes(selDate));
+  if(tbl) h+=`<div><div class="qa"><span class="q">Games that day</span></div>${tbl}</div>`;
+  else if(auto) h+=`<div><div class="qa"><span class="q">Rating that day</span></div><div class="autostats" style="margin-top:4px">${auto}</div></div>`;
   if(e){
     h+=`<div class="qa"><span class="q">What I did</span><div class="tags">${(e.did||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}${e.streamMin?`<span class="tag" style="border-color:var(--twitch)">Live ${e.streamMin} min</span>`:''}</div>${e.didNote?`<span class="a">${esc(e.didNote)}</span>`:''}</div>
       <div class="qa"><span class="q">How I felt playing</span><span class="a"><b>${FACES[e.mood-1][1]}</b>${(e.feel||[]).length?' · '+(e.feel||[]).map(esc).join(', '):''}</span></div>
