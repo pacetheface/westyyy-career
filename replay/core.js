@@ -54,6 +54,8 @@ export function convert(d) {
       track: fr.map(packRB),
       boost: fr.map(f => f && f.Data ? Math.round(f.Data.boost_amount * 100 / 255) : 0),
       boosting: fr.map(f => f && f.Data && f.Data.boost_active ? 1 : 0),
+      // 1 = jump, 2 = double jump, 4 = dodge (flip) active on that frame
+      act: fr.map(f => { const x = f && f.Data; return x ? (x.jump_active ? 1 : 0) | (x.double_jump_active ? 2 : 0) | (x.dodge_active ? 4 : 0) : 0; }),
     };
   }).sort((a, b) => a.team - b.team || a.name.localeCompare(b.name));
 
