@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Replay Lab · Westyyy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-screen review tool. 3D arena fills the stage, moments + tags rail on the right, transport + timeline underneath.
+   Uses the Career Mode palette (arena night) so both pages feel like one app. Single deliberate dark theme. */
+:root{
+  --night:#0b1030; --deck:#141a46; --deck2:#1c2460; --line:#2c3680; --ink:#eef1ff; --mute:#9aa3d6;
+  --blue:#2fa8ff; --orange:#ff8a1f; --gold:#ffd23f; --mint:#3ff0b4; --pink:#ff4fa3;
+  --display:"Bungee","Impact","Arial Black",sans-serif;
+  --body:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--night);color:var(--ink);font-family:var(--body);font-size:14px;overflow:hidden}
+button{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:auto minmax(0,1fr) auto}
+header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:2px solid var(--line);background:var(--deck);flex-wrap:wrap}
+.back{color:var(--mute);text-decoration:none;font-weight:600;font-size:13px}
+.back:hover{color:var(--ink)}
+.brand{font-family:var(--display);font-size:20px;letter-spacing:.02em}
+.brand span{color:var(--gold)}
+.meta{color:var(--mute);font-size:13px;display:flex;gap:14px;flex-wrap:wrap;min-width:0;flex:1}
+.meta b{color:var(--ink);font-weight:700}
+.sync{font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--mute)}
+.sync.ok i{background:var(--mint)}.sync.warn i{background:var(--gold)}.sync.bad i{background:var(--pink)}
+.stage{position:relative;min-width:0;min-height:0;background:#05070f}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+.hud-top{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:stretch;pointer-events:none;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5))}
+.sc{min-width:58px;display:grid;place-items:center;font-family:var(--display);font-size:28px;padding:0 12px;color:#fff}
+.sc.b{background:linear-gradient(180deg,#45b4ff,#1576d1);border-radius:10px 0 0 10px}
+.sc.o{background:linear-gradient(180deg,#ffa04a,#d9600f);border-radius:0 10px 10px 0}
+.clock{background:rgba(11,16,48,.92);font-family:var(--display);font-size:26px;padding:4px 18px;min-width:104px;text-align:center;font-variant-numeric:tabular-nums}
+.names{position:absolute;top:60px;left:50%;transform:translateX(-50%);display:flex;gap:110px;font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;pointer-events:none;white-space:nowrap}
+.names .nb{color:#9fd4ff}.names .no{color:#ffc08a}
+.chip{position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.chip div{background:rgba(11,16,48,.85);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12px;color:var(--mute)}
+.chip b{color:var(--ink)}
+.boost{position:absolute;right:16px;bottom:16px;width:118px;height:118px;pointer-events:none}
+.boost svg{width:100%;height:100%}
+.boost .num{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-size:32px;line-height:1}
+.boost .lbl{position:absolute;left:0;right:0;bottom:22px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--mute)}
+.banner{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);font-family:var(--display);font-size:60px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;text-shadow:0 4px 30px rgba(0,0,0,.6);white-space:nowrap;text-align:center}
+.banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.banner small{display:block;font-family:var(--body);font-weight:700;font-size:18px;letter-spacing:.1em;text-transform:uppercase}
+.ballmark{position:absolute;left:0;top:0;border-radius:50%;border:3px solid var(--gold);box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 14px rgba(255,210,63,.7);pointer-events:none}
+.ballind{position:absolute;left:0;top:0;width:44px;height:44px;pointer-events:none}
+.ballind .arr{position:absolute;inset:0;border-radius:50%;background:rgba(11,16,48,.85);border:3px solid var(--gold)}
+.ballind .arr::after{content:"";position:absolute;right:-13px;top:50%;margin-top:-9px;border-left:13px solid var(--gold);border-top:9px solid transparent;border-bottom:9px solid transparent}
+.ballind span{position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:11px}
+
+/* start screen */
+.start{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#1c2460 0%,#0b1030 70%);overflow:auto}
+.startbox{width:min(620px,100%);display:flex;flex-direction:column;gap:16px}
+.start h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,4vw,38px);margin:0;line-height:1.1}
+.start h1 span{color:var(--gold)}
+.start p{margin:0;color:var(--mute);line-height:1.5}
+.drop{border:3px dashed var(--line);border-radius:18px;padding:30px 20px;text-align:center;background:rgba(20,26,70,.6);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--gold);background:rgba(28,36,96,.8)}
+.drop b{display:block;font-family:var(--display);font-weight:400;font-size:20px;margin-bottom:6px}
+.drop small{color:var(--mute)}
+.path{background:var(--deck);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.path code{font-family:var(--mono);font-size:12px;flex:1;min-width:0;word-break:break-all;color:var(--ink)}
+.past{display:flex;flex-direction:column;gap:6px}
+.past .row{display:flex;justify-content:space-between;gap:12px;background:var(--deck);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
+.past .row span:last-child{color:var(--gold);font-weight:700;white-space:nowrap}
+.err{color:var(--pink);font-weight:600}
+
+aside{grid-row:2/4;grid-column:2;border-left:2px solid var(--line);background:var(--deck);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:2px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;color:var(--mute);font-weight:700;font-size:13px;padding:12px 8px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+.pane{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.focus{background:var(--deck2);border:2px dashed var(--blue);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);font-weight:700}
+.coachfocus{font-family:var(--display);font-size:16px;line-height:1.25;color:var(--blue)}
+.focus label{font-size:12px;color:var(--mute);margin-top:4px}
+.focus select{background:var(--night);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px;font:600 13px var(--body);width:100%}
+.focus p{margin:0;color:var(--mute);font-size:12.5px;line-height:1.45}
+.progress{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute)}
+.bar{flex:1;height:7px;background:var(--night);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold);width:0;transition:width .3s}
+.mo{display:grid;grid-template-columns:8px 1fr auto;gap:10px;align-items:center;background:none;border:1px solid transparent;border-radius:10px;padding:8px 10px;text-align:left;cursor:pointer}
+.mo:hover,.mo:focus-visible{background:var(--deck2);border-color:var(--line);outline:none}
+.mo.active{background:var(--deck2);border-color:var(--gold)}
+.mo .dot{width:8px;height:8px;border-radius:50%}
+.mo .t1{font-weight:700;font-size:13.5px}
+.mo .t2{color:var(--mute);font-size:12px}
+.mo .tc{font-family:var(--mono);font-size:12px;color:var(--mute)}
+.mo .done{color:var(--mint);font-weight:700}
+.empty{color:var(--mute);font-size:13px;line-height:1.5;padding:6px 2px}
+.tag{background:var(--deck2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.tag .h{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--gold);font-weight:700}
+.tag .n{font-size:13px;line-height:1.4}
+.tag .x{background:none;border:0;color:var(--mute);cursor:pointer;font-size:12px;padding:0;align-self:flex-start}
+
+.transport{grid-column:1;border-top:2px solid var(--line);background:var(--deck);padding:10px max(16px,env(safe-area-inset-left,0px)) 12px;display:flex;flex-direction:column;gap:10px}
+.tl{position:relative;height:30px}
+.tl input{position:absolute;inset:0;width:100%;margin:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer;z-index:2}
+.tl .track{position:absolute;left:0;right:0;top:13px;height:4px;background:var(--line);border-radius:2px}
+.tl .fill{position:absolute;left:0;top:13px;height:4px;background:var(--ink);border-radius:2px}
+.tl input::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--night);box-shadow:0 0 0 2px #fff}
+.tl input::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--night)}
+.mk{position:absolute;top:4px;width:3px;height:22px;border-radius:2px;transform:translateX(-1px);pointer-events:none}
+.mk.save,.mk.shot{height:12px;top:9px;opacity:.75}
+.mk.tagm{background:var(--gold);top:0;height:6px;width:6px;border-radius:50%;transform:translateX(-3px)}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{background:var(--deck2);border:2px solid var(--line);border-radius:10px;padding:6px 11px;font-weight:700;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--blue)}
+.btn:focus-visible,.drop:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.btn[aria-pressed="true"]{background:#283270;border-color:var(--blue)}
+.btn.primary{background:var(--gold);color:var(--night);border-color:var(--gold)}
+.btn.play{width:46px;justify-content:center}
+.grp{display:flex;gap:4px;padding:3px;background:var(--night);border-radius:12px;flex-wrap:wrap}
+.grp .btn{border-color:transparent;background:transparent;padding:5px 9px}
+.grp .btn[aria-pressed="true"]{background:var(--deck2);border-color:var(--line)}
+.time{font-family:var(--mono);font-size:13px;color:var(--mute);min-width:118px;font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+.kbd{color:var(--mute);font-size:11.5px}
+.kbd kbd{font-family:var(--mono);background:var(--deck2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:11px}
+
+dialog{background:var(--deck);color:var(--ink);border:2px solid var(--line);border-radius:16px;padding:18px;width:min(440px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h3{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:20px}
+dialog .sub{color:var(--mute);font-size:12.5px;margin:0 0 12px}
+dialog label{display:block;font-size:12px;color:var(--mute);margin:10px 0 4px}
+dialog select,dialog textarea,dialog input{width:100%;background:var(--night);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px;font:14px var(--body)}
+dialog textarea{min-height:76px;resize:vertical}
+dialog .row{justify-content:flex-end;margin-top:14px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(200%);background:var(--gold);color:var(--night);font-weight:700;padding:10px 18px;border-radius:12px;z-index:60;transition:transform .3s;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+@media (max-width:860px){
+  body{overflow:auto}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 56vh auto auto;height:auto;min-height:100%}
+  aside{grid-row:auto;grid-column:1;border-left:0;border-top:2px solid var(--line)}
+  .transport{grid-column:1}
+  .names{gap:60px}
+  .sc,.clock{font-size:20px}.sc{min-width:44px}.clock{min-width:76px}
+  .boost{width:84px;height:84px}.boost .num{font-size:24px}.boost .lbl{bottom:14px}
+  .banner{font-size:36px}
+  .kbd{display:none}
+}
+@media (prefers-reduced-motion:reduce){.banner,.bar i,.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <a class="back" href="../">← Career Mode</a>
+    <div class="brand">Replay <span>Lab</span></div>
+    <div class="meta" id="meta"></div>
+    <div class="sync" id="sync" hidden><i></i><span id="syncTxt"></span></div>
+    <button class="btn" id="newReplay" type="button" hidden>Open another replay</button>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="gl" tabindex="0" aria-label="3D replay view"></canvas>
+    <div id="hud" hidden>
+      <div class="hud-top"><div class="sc b" id="s0">0</div><div class="clock" id="clock">5:00</div><div class="sc o" id="s1">0</div></div>
+      <div class="names"><span class="nb" id="n0"></span><span class="no" id="n1"></span></div>
+      <div class="chip"><div>Camera: <b id="camName"></b></div><div id="ballcamChip">Ball cam: <b id="ballcamState">on</b></div></div>
+      <div class="boost" id="boostEl">
+        <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="rgba(11,16,48,.85)" stroke="#2c3680" stroke-width="8"/>
+          <circle id="boostArc" cx="60" cy="60" r="50" fill="none" stroke="#ffd23f" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" transform="rotate(135 60 60)"/></svg>
+        <div class="num" id="boostNum">0</div><div class="lbl">BOOST</div>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="ballmark" id="ballMark" hidden></div>
+      <div class="ballind" id="ballInd" hidden><div class="arr"></div><span></span></div>
+    </div>
+
+    <div class="start" id="start">
+      <div class="startbox">
+        <h1>Replay <span>Lab</span></h1>
+        <p>Open one of your replays to watch it in 3D from your own camera, find this week's focus moments and tag what you'd do differently. Tags count toward Career Mode.</p>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Open a replay file">
+          <b>Drop a replay here</b>
+          <small>or click to pick a .replay file</small>
+        </div>
+        <input type="file" id="file" accept=".replay" hidden>
+        <div class="path"><code id="pathTxt">C:\Users\YOU\Documents\My Games\Rocket League\TAGame\Demos</code><button class="btn" id="copyPath" type="button">Copy folder path</button></div>
+        <p style="font-size:13px">In Rocket League, save a replay at the end of a match (Save Replay), and it lands in that folder. Paste the path into the file picker's address bar to jump straight there.</p>
+        <p id="startMsg" aria-live="polite"></p>
+        <div id="pastWrap" hidden>
+          <div class="eyebrow" style="color:var(--mute);margin-bottom:6px">Your reviews</div>
+          <div class="past" id="past"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" id="tabMoments">Key moments</button>
+      <button role="tab" aria-selected="false" id="tabTags">My tags <span id="tagCount"></span></button>
+    </div>
+    <div class="pane" id="paneMoments">
+      <div class="focus">
+        <div class="eyebrow">This week's focus from Coach</div>
+        <div class="coachfocus" id="coachFocus">No focus set yet</div>
+        <label for="focusSel">Moments to check</label>
+        <select id="focusSel"></select>
+        <p id="focusHelp"></p>
+        <div class="progress"><span id="progTxt"></span><div class="bar"><i id="progBar"></i></div></div>
+      </div>
+      <div id="moments"><div class="empty">Open a replay to see its goals, shots and saves here.</div></div>
+    </div>
+    <div class="pane" id="paneTags" hidden><div id="tags"></div></div>
+  </aside>
+
+  <div class="transport">
+    <div class="tl"><div class="track"></div><div class="fill" id="fill"></div><div id="markers"></div>
+      <input type="range" id="scrub" min="0" max="1" step="0.01" value="0" aria-label="Replay timeline" disabled></div>
+    <div class="row">
+      <button class="btn play" id="play" aria-label="Play" type="button">▶</button>
+      <button class="btn" id="back5" type="button" title="Back 5 seconds">−5s</button>
+      <button class="btn" id="fwd5" type="button" title="Forward 5 seconds">+5s</button>
+      <span class="time" id="time">0:00.0 / 0:00.0</span>
+      <div class="grp" id="speeds"></div>
+      <div class="grp" id="cams"></div>
+      <button class="btn" id="ballcamBtn" type="button" aria-pressed="true" title="Ball cam: on → as played → off (B)">Ball cam: on</button>
+      <div class="spacer"></div>
+      <button class="btn primary" id="tagBtn" type="button">+ Tag this moment</button>
+    </div>
+    <div class="kbd"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> 5s · <kbd>,</kbd><kbd>.</kbd> frame step · <kbd>1</kbd>–<kbd>9</kbd> cameras · <kbd>B</kbd> ball cam · <kbd>T</kbd> tag · drag in Orbit view to look around</div>
+  </div>
+</div>
+
+<dialog id="tagDlg">
+  <form id="tagForm">
+    <h3>Tag this moment</h3>
+    <p class="sub" id="tagWhen"></p>
+    <label for="tagCat">What is it?</label>
+    <select id="tagCat"></select>
+    <label for="tagNote">What should you have done?</label>
+    <textarea id="tagNote" maxlength="300" placeholder="e.g. I went for the ball when he had it. I should have backed up to my goal."></textarea>
+    <div class="row"><button class="btn" id="tagCancel" type="button">Cancel</button><button class="btn primary" type="submit">Save tag</button></div>
+  </form>
+</dialog>
+
+<dialog id="gate">
+  <form id="gateForm">
+    <h3>Family code</h3>
+    <p class="sub">Same code as Career Mode. Your tags get saved there.</p>
+    <label for="gateIn">Code</label>
+    <input id="gateIn" type="password" autocomplete="off">
+    <p class="sub err" id="gateMsg"></p>
+    <div class="row"><button class="btn" id="gateSkip" type="button">Not now</button><button class="btn primary" type="submit">Continue</button></div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { parseReplay, initParser } from './core.js';
+
+const $ = id => document.getElementById(id);
+const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+const fmtT = s => { s = Math.max(0, s); return Math.floor(s/60) + ':' + (s%60).toFixed(1).padStart(4,'0'); };
+const short = n => String(n).replace(/\s*-_-\s*/,'').trim();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const store = { get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d }catch(e){ return d } }, set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)) }catch(e){} } };
+let toastT; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400); }
+
+// ================= backend (same Apps Script as Career Mode) =================
+const API_URL = 'https://script.google.com/macros/s/AKfycbz8Bgoqpp9JFoaRAn_3ZkCS5ncOvW7BxsVJ_Ql6g6MIE0lRTCiiQfqRKiFW3Al4RQ3P9Q/exec';
+let FAMILY = store.get('familyCode', null);
+let backend = { ok: false, reason: 'not-checked', focus: null, reviews: [] };
+async function api(action, ...args) {
+  if (!FAMILY) throw Object.assign(new Error('No family code'), { code: 'family' });
+  const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, args, code: FAMILY }) });
+  const r = await res.json();
+  if (!r.ok) throw Object.assign(new Error(r.error || 'Something went wrong'), { code: r.code });
+  return r.result;
+}
+function setSync(kind, txt) { const s = $('sync'); s.hidden = false; s.className = 'sync ' + kind; $('syncTxt').textContent = txt; }
+async function connect() {
+  if (!FAMILY) { backend.reason = 'no-code'; setSync('warn', 'Not signed in. Tags stay on this PC'); return; }
+  try {
+    const r = await api('getReplayReviews');
+    backend = { ok: true, reason: '', focus: r.focus, reviews: r.reviews || [] };
+    setSync('ok', 'Connected to Career Mode');
+  } catch (e) {
+    if (e.code === 'family') { FAMILY = null; store.set('familyCode', null); backend.reason = 'no-code'; setSync('warn', 'Family code didn\'t work. Tags stay on this PC'); return; }
+    backend.reason = /Unknown action/.test(e.message) ? 'old-backend' : 'offline';
+    setSync('warn', backend.reason === 'old-backend' ? 'Career Mode needs the replay update. Tags stay on this PC' : 'Offline. Tags stay on this PC');
+  }
+  renderCoachFocus(); renderPast();
+}
+function renderCoachFocus() { $('coachFocus').textContent = backend.focus && backend.focus.text ? backend.focus.text : 'No focus set yet'; }
+function renderPast() {
+  const list = (backend.reviews || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 8);
+  $('pastWrap').hidden = !list.length;
+  $('past').innerHTML = list.map(r => `<div class="row"><span>${esc(r.date || '')} · ${esc(r.mode || '')} vs ${esc(r.opponent || '?')} · ${esc(r.result || '')}</span><span>${r.tags.length} tag${r.tags.length === 1 ? '' : 's'}</span></div>`).join('');
+}
+$('gateForm').onsubmit = async e => {
+  e.preventDefault(); const v = $('gateIn').value.trim(); if (!v) return;
+  FAMILY = v; store.set('familyCode', v); $('gateMsg').textContent = 'Checking…';
+  await connect();
+  if (backend.ok || backend.reason === 'old-backend') { $('gate').close(); if (M) { mergeBackendTags(); queueSave(); } }
+  else $('gateMsg').textContent = 'That code didn\'t work. Try again.';
+};
+$('gateSkip').onclick = () => $('gate').close();
+
+// ================= three.js scene (built once) =================
+const canvas = $('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x7fa6d6);
+scene.fog = new THREE.Fog(0x7fa6d6, 14000, 30000);
+const camera = new THREE.PerspectiveCamera(70, 1, 5, 60000);
+scene.add(new THREE.HemisphereLight(0xe8f1ff, 0x2a3a2a, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3000, 8000, 2000); scene.add(sun);
+const TEAMCOL = [0x2fa8ff, 0xff8a1f];
+
+// Rocket League units: x side to side, y goal to goal, z up.  three.js: (x, z, y).
+const V = (x, y, z) => new THREE.Vector3(x, z, y);
+const X = 4096, Y = 5120, C = 1152, WALL = 2044, GW = 893, GH = 642, GD = 880;
+function floorTexture() {
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 1280;
+  const g = cv.getContext('2d'); const s = 1024/8192;
+  for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#2f6b3c' : '#2a6136'; g.fillRect(0, i*80, 1024, 80); }
+  g.fillStyle = 'rgba(40,140,255,0.22)'; g.fillRect(0, 0, 1024, 640);
+  g.fillStyle = 'rgba(255,128,30,0.22)'; g.fillRect(0, 640, 1024, 640);
+  g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 6;
+  g.beginPath(); g.moveTo(0, 640); g.lineTo(1024, 640); g.stroke();
+  g.beginPath(); g.arc(512, 640, 1000*s, 0, Math.PI*2); g.stroke();
+  g.strokeRect(512-1500*s, 0, 3000*s, 1100*s); g.strokeRect(512-1500*s, 1280-1100*s, 3000*s, 1100*s);
+  g.lineWidth = 10; g.strokeStyle = 'rgba(255,255,255,.9)'; g.strokeRect(4, 4, 1016, 1272);
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
+  tx.repeat.set(1/8192, 1/10240); tx.offset.set(.5, .5); return tx;
+}
+const oct = [[-X+C,-Y],[X-C,-Y],[X,-Y+C],[X,Y-C],[X-C,Y],[-X+C,Y],[-X,Y-C],[-X,-Y+C]];
+{
+  const sh = new THREE.Shape(); oct.forEach(([x,y],i) => i ? sh.lineTo(x,-y) : sh.moveTo(x,-y));
+  const fl = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: .95 }));
+  fl.rotation.x = -Math.PI/2; scene.add(fl);
+  const out = new THREE.Mesh(new THREE.CircleGeometry(30000, 48), new THREE.MeshStandardMaterial({ color: 0x1b2430, roughness: 1 }));
+  out.rotation.x = -Math.PI/2; out.position.y = -4; scene.add(out);
+}
+const wallMat = new THREE.MeshBasicMaterial({ color: 0xbfd8ff, transparent: true, opacity: .06, side: THREE.DoubleSide, depthWrite: false });
+const edgeMat = new THREE.LineBasicMaterial({ color: 0xdbe8ff, transparent: true, opacity: .45 });
+function quad(a, b, z0, z1) {
+  const g = new THREE.BufferGeometry().setFromPoints([V(a[0],a[1],z0), V(b[0],b[1],z0), V(b[0],b[1],z1), V(a[0],a[1],z0), V(b[0],b[1],z1), V(a[0],a[1],z1)]);
+  scene.add(new THREE.Mesh(g, wallMat));
+}
+for (let i = 0; i < 8; i++) {
+  const a = oct[i], b = oct[(i+1)%8];
+  if (i === 0 || i === 4) {
+    const l = [-GW, a[1]], r = [GW, a[1]]; const [p, q] = a[0] < b[0] ? [l, r] : [r, l];
+    quad(a, p, 0, WALL); quad(q, b, 0, WALL); quad(p, q, GH, WALL);
+  } else quad(a, b, 0, WALL);
+}
+{
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(oct.concat([oct[0]]).map(([x,y]) => V(x,y,WALL))), edgeMat));
+  const segs = []; oct.forEach(([x,y]) => segs.push(V(x,y,0), V(x,y,WALL)));
+  scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segs), edgeMat));
+}
+function goal(sign, col) {
+  const y0 = sign*Y, y1 = sign*(Y+GD);
+  const m = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .8 });
+  const bar = (w, h, dd, x, z, y) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), m); b.position.copy(V(x, y, z)); scene.add(b); };
+  bar(24, GH, 24, -GW, GH/2, y0); bar(24, GH, 24, GW, GH/2, y0); bar(GW*2+24, 24, 24, 0, GH, y0);
+  const net = new THREE.Mesh(new THREE.BoxGeometry(GW*2, GH, GD), new THREE.MeshBasicMaterial({ color: col, wireframe: true, transparent: true, opacity: .25 }));
+  net.position.copy(V(0, (y0+y1)/2, GH/2)); scene.add(net);
+  const gf = new THREE.Mesh(new THREE.PlaneGeometry(GW*2, GD), new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: .35 }));
+  gf.rotation.x = -Math.PI/2; gf.position.copy(V(0, (y0+y1)/2, 1)); scene.add(gf);
+}
+goal(-1, TEAMCOL[0]); goal(1, TEAMCOL[1]);
+
+// ball + helpers that keep it easy to find
+function ballTexture() {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d');
+  g.fillStyle = '#eef1f4'; g.fillRect(0,0,512,256); g.fillStyle = '#5b6573';
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) { const x = (c + (r%2)*.5) * 64, y = 26 + r*51; g.beginPath(); for (let k = 0; k < 6; k++) { const a = k*Math.PI/3; g.lineTo(x + 13*Math.cos(a), y + 11*Math.sin(a)); } g.fill(); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const ballTex = ballTexture();
+const ball = new THREE.Mesh(new THREE.SphereGeometry(92.75, 40, 28), new THREE.MeshStandardMaterial({ map: ballTex, emissiveMap: ballTex, emissive: 0xffffff, emissiveIntensity: .6, roughness: .45 }));
+scene.add(ball);
+const ghost = new THREE.Mesh(new THREE.SphereGeometry(97, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .28, depthTest: false, depthWrite: false }));
+ghost.renderOrder = 20; scene.add(ghost);
+const shadow = new THREE.Mesh(new THREE.CircleGeometry(92, 32), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .45, depthWrite: false }));
+shadow.rotation.x = -Math.PI/2; scene.add(shadow);
+const TRAIL = 45;
+const trailGeo = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL * 3), 3));
+const tcol = new Float32Array(TRAIL * 4); for (let k = 0; k < TRAIL; k++) tcol.set([1, .86, .3, k / TRAIL], k * 4);
+trailGeo.setAttribute('color', new THREE.BufferAttribute(tcol, 4));
+const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthTest: false }));
+trail.renderOrder = 19; trail.frustumCulled = false; scene.add(trail);
+const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const drop = new THREE.Line(dropGeo, new THREE.LineDashedMaterial({ color: 0xffd23f, dashSize: 40, gapSize: 30, transparent: true, opacity: .8 }));
+drop.frustumCulled = false; scene.add(drop);
+[ball, ghost, shadow, trail, drop].forEach(o => o.visible = false);
+
+function label(text, col) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d');
+  g.font = '700 54px "Chakra Petch", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 10; g.strokeStyle = 'rgba(0,0,0,.7)'; g.strokeText(text, 256, 48); g.fillStyle = col; g.fillText(text, 256, 48);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
+  sp.scale.set(320, 60, 1); sp.renderOrder = 10; return sp;
+}
+function makeCar(team, name) {
+  const g = new THREE.Group(), col = TEAMCOL[team];
+  const body = new THREE.MeshStandardMaterial({ color: col, roughness: .4, metalness: .3 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x111820, roughness: .3, metalness: .5 });
+  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
+  add(new THREE.BoxGeometry(118, 24, 82), body, 10, 2, 0);
+  const nose = add(new THREE.BoxGeometry(34, 14, 78), body, 72, -3, 0); nose.rotation.z = -.25;
+  add(new THREE.BoxGeometry(54, 18, 66), dark, -4, 22, 0);
+  add(new THREE.BoxGeometry(10, 5, 84), dark, -46, 30, 0);
+  const wg = new THREE.CylinderGeometry(14, 14, 12, 16); wg.rotateX(Math.PI/2);
+  [[46,40],[46,-40],[-28,40],[-28,-40]].forEach(([x,z]) => add(wg, dark, x, -3, z));
+  const flame = add(new THREE.ConeGeometry(8, 42, 10), new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: .7 }), -70, 4, 0);
+  flame.rotation.z = Math.PI/2; flame.visible = false;
+  const holder = new THREE.Group(); holder.add(g);
+  const lb = label(short(name), team ? '#ffc79b' : '#a9d8ff');
+  return { holder, flame, lb };
+}
+
+// ================= per-match state =================
+let M = null, T = [], N = 0, DUR = 1, P = [], ME = 0, myTeam = 0, CAMS = [], cars = [], padObjs = [], padState = [];
+const matchGroup = new THREE.Group(); scene.add(matchGroup);
+const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.enabled = false;
+let camMode = 'p0', ballcamOverride = true;
+const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(); let snap = true;
+let lastDir = [];
+let t = 0, playing = false, speed = 1, stopAt = null, lastNow = performance.now(), activeMoment = -1, lastFrameShown = 0, bannerTimer = 0;
+const posB = new THREE.Vector3(), qB = new THREE.Quaternion();
+let posC = [], qC = [];
+let review = { tags: [] }, focusMode = 'where';
+
+const qb2 = new THREE.Quaternion(), pb = new THREE.Vector3();
+function decode(e, out, q) { out.set(e[0], e[2], e[1]); q.set(-e[3], -e[5], -e[4], e[6]).normalize(); }
+function sample(track, i, w, pos, quat) {
+  const a = track[i]; if (!a) return false;
+  decode(a, pos, quat);
+  const b = track[i+1];
+  if (b && w > 0) { decode(b, pb, qb2); if (pos.distanceTo(pb) < 600) { pos.lerp(pb, w); quat.slerp(qb2, w); } }
+  return true;
+}
+function frameAt(tt) { let lo = 0, hi = N-1; while (lo < hi) { const m = (lo+hi+1)>>1; if (T[m] <= tt) lo = m; else hi = m-1; } return lo; }
+function ballcamAt(pl, i) { let v = true; for (const [f, b] of pl.ballcam) { if (f <= i) v = b; else break; } return v; }
+function hfovToV(h, aspect) { return 2 * Math.atan(Math.tan(h*Math.PI/360) / aspect) * 180/Math.PI; }
+
+function boot(match) {
+  M = match; T = M.t; N = T.length; DUR = T[N-1]; P = M.players;
+  ME = P.findIndex(p => /westyyy/i.test(p.name)); if (ME < 0) ME = 0;
+  myTeam = P[ME].team;
+  // clear old match objects
+  while (matchGroup.children.length) matchGroup.remove(matchGroup.children[0]);
+  cars = P.map(p => { const c = makeCar(p.team, p.name); matchGroup.add(c.holder, c.lb); return c; });
+  posC = P.map(() => new THREE.Vector3()); qC = P.map(() => new THREE.Quaternion()); lastDir = P.map(() => new THREE.Vector3(0, 0, 1));
+  // boost pads with pickup state per frame
+  const padM = new THREE.MeshStandardMaterial({ color: 0xffb020, emissive: 0xff9a00, emissiveIntensity: .7 });
+  const offM = new THREE.MeshStandardMaterial({ color: 0x3a3f4a });
+  const baseM = new THREE.MeshStandardMaterial({ color: 0x333a44 });
+  padObjs = []; padState = [];
+  (M.pads || []).forEach(p => {
+    const o = {};
+    if (p.big) {
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(160, 160, 6, 24), baseM); b.position.copy(V(p.x, p.y, 3)); matchGroup.add(b);
+      o.orb = new THREE.Mesh(new THREE.SphereGeometry(42, 16, 12), padM); o.orb.position.copy(V(p.x, p.y, 70)); matchGroup.add(o.orb);
+    } else { o.disc = new THREE.Mesh(new THREE.CylinderGeometry(70, 70, 5, 18), padM); o.disc.position.copy(V(p.x, p.y, 3)); matchGroup.add(o.disc); o.on = padM; o.off = offM; }
+    padObjs.push(o);
+    const st = new Uint8Array(N).fill(1); let cur = 1, k = 0;
+    for (let i = 0; i < N; i++) { while (k < p.ev.length && p.ev[k][0] <= i) { cur = p.ev[k][1]; k++; } st[i] = cur; }
+    padState.push(st);
+  });
+  // header + HUD names
+  const d = M.meta, mine = myTeam === 0 ? d.Team0Score : d.Team1Score, theirs = myTeam === 0 ? d.Team1Score : d.Team0Score;
+  const opps = P.filter(p => p.team !== myTeam).map(p => short(p.name));
+  $('meta').innerHTML = `<span><b>${d.TeamSize}v${d.TeamSize}</b></span><span><b>${esc(short(P[ME].name))}</b> vs <b>${esc(opps.join(', '))}</b></span><span>${mine > theirs ? 'Won' : mine < theirs ? 'Lost' : 'Tied'} <b>${mine}–${theirs}</b></span><span>${esc((d.Date||'').split(' ')[0])}</span>`;
+  $('n0').textContent = P.filter(p => p.team === 0).map(p => short(p.name)).join(' · ') || 'Blue';
+  $('n1').textContent = P.filter(p => p.team === 1).map(p => short(p.name)).join(' · ') || 'Orange';
+  // cameras: one per player, then orbit and stadium
+  CAMS = P.map((p, k) => ({ id: 'p' + k, label: k === ME ? 'My view' : short(p.name) + '\'s view', idx: k })).concat([{ id: 'orbit', label: 'Orbit' }, { id: 'stadium', label: 'Stadium' }]);
+  $('cams').innerHTML = '';
+  CAMS.forEach((c, k) => { const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.dataset.id = c.id; b.textContent = c.label; b.title = 'Camera ' + (k+1); b.onclick = () => setCam(c.id); $('cams').appendChild(b); });
+  // tags: Career Mode copy wins, else this PC's copy
+  review = { tags: store.get('replaylab:' + M.id, []) };
+  mergeBackendTags();
+  $('scrub').max = DUR; $('scrub').disabled = false;
+  $('start').hidden = true; $('hud').hidden = false; $('newReplay').hidden = false;
+  setCam('p' + ME);
+  renderAll();
+  const first = M.moments.find(m => m.type === 'goal' && m.team !== myTeam) || M.moments[0];
+  if (first) { activeMoment = M.moments.indexOf(first); seek(T[first.f] - 6); } else seek(0);
+  setPlaying(false); renderAll();
+}
+function mergeBackendTags() {
+  if (!M) return;
+  const r = (backend.reviews || []).find(x => x.id === M.id);
+  if (r && r.tags.length >= review.tags.length) review.tags = r.tags;
+}
+
+// ================= camera =================
+function playerCam(idx, i, dtS, hasBall) {
+  const pl = P[idx], s = pl.camera || { fov: 110, height: 100, angle: -4, distance: 270, stiffness: .5 };
+  const bc = ballcamOverride === null ? ballcamAt(pl, i) : ballcamOverride;
+  const carPos = posC[idx], up = new THREE.Vector3(0,1,0);
+  const f = new THREE.Vector3(1,0,0).applyQuaternion(qC[idx]); f.y = 0;
+  if (f.lengthSq() > .01) lastDir[idx].copy(f.normalize());
+  const fwd = lastDir[idx];
+  let desired, look;
+  if (bc && hasBall) {
+    const dir = carPos.clone().sub(posB); dir.y = 0;
+    if (dir.lengthSq() < 400) dir.copy(fwd).negate(); dir.normalize();
+    desired = carPos.clone().addScaledVector(dir, s.distance).addScaledVector(up, s.height);
+    look = posB.clone();
+    if (posB.y - carPos.y > 900) look.lerp(carPos.clone().addScaledVector(up, s.height * .6).addScaledVector(dir, -800), .35);
+  } else {
+    desired = carPos.clone().addScaledVector(fwd, -s.distance).addScaledVector(up, s.height);
+    const a = s.angle * Math.PI/180;
+    look = desired.clone().addScaledVector(fwd, Math.cos(a) * 1000).addScaledVector(up, Math.sin(a) * 1000);
+  }
+  desired.y = Math.max(desired.y, 25);
+  desired.x = THREE.MathUtils.clamp(desired.x, -X+60, X-60); desired.z = THREE.MathUtils.clamp(desired.z, -Y-GD, Y+GD);
+  const k = snap ? 1 : 1 - Math.exp(-dtS * (6 + (s.stiffness ?? .5) * 18));
+  camPos.lerp(desired, k); camLook.lerp(look, snap ? 1 : 1 - Math.exp(-dtS * 14));
+  camera.position.copy(camPos); camera.lookAt(camLook);
+  camera.fov = hfovToV(s.fov || 110, camera.aspect); camera.updateProjectionMatrix();
+  return bc;
+}
+function setCam(id) {
+  camMode = id; snap = true; controls.enabled = id === 'orbit';
+  [...$('cams').children].forEach(c => c.setAttribute('aria-pressed', c.dataset.id === id));
+  const c = CAMS.find(x => x.id === id); $('camName').textContent = c ? c.label : '';
+  const isP = id.startsWith('p');
+  $('boostEl').hidden = !isP; $('ballcamBtn').hidden = !isP; $('ballcamChip').hidden = !isP;
+  if (id === 'stadium') { camera.position.set(0, 4200, -9600); camera.lookAt(0, 0, -600); camera.fov = hfovToV(100, camera.aspect); camera.updateProjectionMatrix(); }
+  if (id === 'orbit') { const tg = ball.visible ? ball.position.clone() : new THREE.Vector3(); controls.target.copy(tg); camera.position.copy(tg).add(new THREE.Vector3(0, 1400, -2200)); camera.fov = hfovToV(100, camera.aspect); camera.updateProjectionMatrix(); }
+}
+function cycleBallcam() {
+  ballcamOverride = ballcamOverride === true ? null : ballcamOverride === null ? false : true;
+  $('ballcamBtn').textContent = 'Ball cam: ' + (ballcamOverride === null ? 'as played' : ballcamOverride ? 'on' : 'off');
+  $('ballcamBtn').setAttribute('aria-pressed', ballcamOverride !== null);
+}
+$('ballcamBtn').onclick = cycleBallcam;
+
+// ================= render loop =================
+function showBanner(html, col) { const b = $('banner'); b.innerHTML = html; b.style.color = col; b.classList.add('show'); clearTimeout(bannerTimer); bannerTimer = setTimeout(() => b.classList.remove('show'), 2200); }
+function render(now) {
+  requestAnimationFrame(render);
+  const dtS = Math.min(.1, (now - lastNow) / 1000); lastNow = now;
+  if (!M) { camera.position.set(Math.sin(now/9000)*7000, 3200, Math.cos(now/9000)*7000); camera.lookAt(0,0,0); renderer.render(scene, camera); return; }
+  if (playing) { t += dtS * speed; if (stopAt !== null && t >= stopAt) { t = stopAt; stopAt = null; setPlaying(false); } if (t >= DUR) { t = DUR; setPlaying(false); } }
+  const i = frameAt(t), w = i < N-1 ? (t - T[i]) / (T[i+1] - T[i]) : 0;
+  const hasBall = sample(M.ball, i, w, posB, qB);
+  [ball, ghost, shadow, trail].forEach(o => o.visible = hasBall);
+  if (hasBall) {
+    ball.position.copy(posB); ball.quaternion.copy(qB); ghost.position.copy(posB);
+    shadow.position.set(posB.x, 2, posB.z); const h = Math.max(0, posB.y - 93); shadow.scale.setScalar(Math.max(.35, 1 - h/2500)); shadow.material.opacity = Math.max(.12, .45 - h/5000);
+    const arr = trailGeo.attributes.position.array; let last = null;
+    for (let k = 0; k < TRAIL; k++) {
+      const e = M.ball[Math.max(0, i - (TRAIL - 1 - k))];
+      if (e && (!last || Math.hypot(e[0]-last[0], e[1]-last[1], e[2]-last[2]) < 600)) last = e;
+      if (k === TRAIL - 1 || !last) arr.set([posB.x, posB.y, posB.z], k*3); else arr.set([last[0], last[2], last[1]], k*3);
+    }
+    trailGeo.attributes.position.needsUpdate = true;
+    drop.visible = posB.y > 220;
+    if (drop.visible) { dropGeo.attributes.position.array.set([posB.x, posB.y - 93, posB.z, posB.x, 2, posB.z]); dropGeo.attributes.position.needsUpdate = true; drop.computeLineDistances(); }
+  } else drop.visible = false;
+  padObjs.forEach((o, k) => { const on = padState[k][i]; if (o.orb) o.orb.visible = !!on; else o.disc.material = on ? o.on : o.off; });
+  const viewIdx = camMode.startsWith('p') ? +camMode.slice(1) : -1;
+  P.forEach((pl, k) => {
+    const ok = sample(pl.track, i, w, posC[k], qC[k]), c = cars[k];
+    c.holder.visible = ok; c.lb.visible = ok && k !== viewIdx;
+    if (ok) { c.holder.position.copy(posC[k]); c.holder.quaternion.copy(qC[k]); c.lb.position.copy(posC[k]).add(new THREE.Vector3(0, 120, 0)); c.flame.visible = !!pl.boosting[i]; c.flame.scale.y = .8 + Math.random() * .5; }
+  });
+  let bcState = null;
+  if (viewIdx >= 0) {
+    if (cars[viewIdx].holder.visible) bcState = playerCam(viewIdx, i, dtS, hasBall);
+    else { camera.position.copy(camPos); camera.lookAt(camLook); }
+  } else if (camMode === 'orbit') {
+    if (hasBall) { const dl = posB.clone().sub(controls.target); camera.position.add(dl); controls.target.copy(posB); }
+    controls.update();
+  }
+  snap = false;
+  const sc = [0, 0]; for (const [f, team, v] of M.score) if (f <= i) sc[team] = v;
+  $('s0').textContent = sc[0]; $('s1').textContent = sc[1];
+  $('clock').textContent = fmt(M.clock[i]);
+  if (viewIdx >= 0) { const bst = P[viewIdx].boost[i]; $('boostNum').textContent = bst; $('boostArc').style.strokeDashoffset = 314 - 235.5 * bst / 100; }
+  if (bcState !== null) $('ballcamState').textContent = bcState ? 'on' : 'off';
+  $('time').textContent = fmtT(t) + ' / ' + fmtT(DUR);
+  if (document.activeElement !== $('scrub')) $('scrub').value = t;
+  $('fill').style.width = (t / DUR * 100) + '%';
+  if (playing && i > lastFrameShown) for (const g of M.moments) if (g.type === 'goal' && g.f > lastFrameShown && g.f <= i) {
+    const mine = g.team === myTeam; showBanner((mine ? 'Goal!' : 'Goal against') + `<small>${esc(short(g.player))}</small>`, mine ? '#9fd4ff' : '#ffc08a');
+  }
+  lastFrameShown = i;
+  renderer.render(scene, camera);
+  // ball marker (on screen) or edge arrow (off screen)
+  const ind = $('ballInd'), mark = $('ballMark'); mark.hidden = true; ind.hidden = true;
+  if (hasBall) {
+    const r = $('stage').getBoundingClientRect();
+    const v = posB.clone().project(camera), behind = posB.clone().sub(camera.position).dot(camera.getWorldDirection(new THREE.Vector3())) < 0;
+    let x = v.x, y = v.y; if (behind) { x = -x; y = -y; }
+    if (behind || Math.abs(x) > .95 || Math.abs(y) > .95) {
+      const m = Math.max(Math.abs(x), Math.abs(y)) || 1; x /= m; y /= m; const pad = 46;
+      ind.hidden = false;
+      ind.style.transform = `translate(${(x * .5 + .5) * (r.width - 2*pad) + pad - 22}px, ${(-y * .5 + .5) * (r.height - 2*pad) + pad - 22}px)`;
+      ind.firstElementChild.style.transform = `rotate(${Math.atan2(-y, x)}rad)`;
+      ind.lastElementChild.textContent = Math.round(posB.distanceTo(camera.position) / 100) + 'm';
+    } else {
+      const rpx = 92.75 / (posB.distanceTo(camera.position) * Math.tan(camera.fov * Math.PI / 360)) * (r.height / 2);
+      const size = Math.max(30, rpx * 2 + 14);
+      mark.hidden = rpx > 70;
+      mark.style.width = mark.style.height = size + 'px';
+      mark.style.transform = `translate(${(v.x * .5 + .5) * r.width - size/2}px, ${(-v.y * .5 + .5) * r.height - size/2}px)`;
+    }
+  }
+}
+function resize() {
+  const r = $('stage').getBoundingClientRect();
+  renderer.setSize(r.width, r.height, false); camera.aspect = r.width / Math.max(1, r.height);
+  if (!camMode.startsWith('p')) camera.fov = hfovToV(100, camera.aspect);
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe($('stage'));
+
+// ================= transport =================
+function setPlaying(v) { playing = v && !!M; $('play').textContent = playing ? '❚❚' : '▶'; $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play'); if (playing && t >= DUR) t = 0; }
+function seek(v) { t = THREE.MathUtils.clamp(v, 0, DUR); snap = true; lastFrameShown = frameAt(t); }
+$('play').onclick = () => setPlaying(!playing);
+$('back5').onclick = () => seek(t - 5); $('fwd5').onclick = () => seek(t + 5);
+$('scrub').oninput = () => { seek(+$('scrub').value); stopAt = null; };
+[.25, .5, 1, 2].forEach(s => { const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = s + '×'; b.setAttribute('aria-pressed', s === 1); b.onclick = () => { speed = s; [...$('speeds').children].forEach(c => c.setAttribute('aria-pressed', c === b)); }; $('speeds').appendChild(b); });
+addEventListener('keydown', e => {
+  if (!M || e.target.matches('input,textarea,select') || $('tagDlg').open || $('gate').open) return;
+  if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
+  else if (e.key === 'ArrowLeft') seek(t - 5); else if (e.key === 'ArrowRight') seek(t + 5);
+  else if (e.key === ',') { setPlaying(false); seek(T[Math.max(0, frameAt(t) - 1)]); }
+  else if (e.key === '.') { setPlaying(false); seek(T[Math.min(N-1, frameAt(t) + 1)]); }
+  else if (e.key >= '1' && e.key <= '9' && CAMS[+e.key - 1]) setCam(CAMS[+e.key - 1].id);
+  else if (e.key === 'b' || e.key === 'B') cycleBallcam();
+  else if (e.key === 't' || e.key === 'T') openTag();
+});
+
+// ================= moments, focus, tags =================
+const FOCI = [
+  { id: 'where', name: 'Goals against me', help: 'For every goal against you, pause 3 seconds before it. Where were you? Tag what you should have done instead.', cat: 'Out of position', test: m => m.type === 'goal' && m.team !== myTeam },
+  { id: 'danger', name: 'Every shot on my goal', help: 'Go through each shot and goal against you. Tag the moments where you could have stopped it earlier.', cat: 'Committed too early', test: m => m.team !== myTeam },
+  { id: 'good', name: 'My goals, shots and saves', help: 'Find your best plays and tag what made them work, so you keep doing it.', cat: 'Good play, keep doing it', test: m => m.team === myTeam },
+  { id: 'all', name: 'Everything', help: 'All goals, shots and saves in the match.', cat: 'Out of position', test: () => true },
+];
+const CATS = ['Out of position', 'Committed too early', 'Chased the ball', 'No boost when I needed it', 'Bad touch / missed the ball', 'Slow rotation back', 'Good play, keep doing it'];
+FOCI.forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; $('focusSel').appendChild(o); });
+CATS.forEach(c => { const o = document.createElement('option'); o.textContent = c; $('tagCat').appendChild(o); });
+focusMode = store.get('replaylab:focusMode', 'where'); $('focusSel').value = focusMode;
+$('focusSel').onchange = () => { focusMode = $('focusSel').value; store.set('replaylab:focusMode', focusMode); renderAll(); };
+const curFocus = () => FOCI.find(f => f.id === focusMode) || FOCI[0];
+
+function describe(m) {
+  const mine = m.team === myTeam, who = short(m.player), me = m.player === P[ME].name;
+  if (m.type === 'goal') return mine ? [me ? 'Your goal' : 'Teammate goal', who] : ['Goal against you', who];
+  if (m.type === 'save') return mine ? [me ? 'Your save' : 'Teammate save', who] : ['Saved by ' + who, 'your team\'s shot was stopped'];
+  return mine ? [me ? 'Your shot' : 'Teammate shot', who] : ['Shot on your goal', who];
+}
+const momentDone = m => { const tt = T[m.f]; return review.tags.some(g => g.t >= tt - 8 && g.t <= tt + 2); };
+function renderAll() {
+  if (!M) return;
+  const f = curFocus();
+  $('focusHelp').textContent = f.help;
+  const rel = M.moments.filter(f.test), done = rel.filter(momentDone).length;
+  $('progTxt').textContent = `${done} of ${rel.length} moments reviewed`;
+  $('progBar').style.width = rel.length ? (done / rel.length * 100) + '%' : '0';
+  const box = $('moments'); box.innerHTML = '';
+  if (!M.moments.length) box.innerHTML = '<div class="empty">No goals, shots or saves found in this replay.</div>';
+  M.moments.forEach((m, k) => {
+    const [a, b] = describe(m), col = m.team === 0 ? 'var(--blue)' : 'var(--orange)';
+    const el = document.createElement('button'); el.type = 'button'; el.className = 'mo' + (k === activeMoment ? ' active' : ''); el.style.opacity = f.test(m) ? 1 : .45;
+    el.innerHTML = `<span class="dot" style="background:${col}"></span><span><div class="t1">${esc(a)}</div><div class="t2">${esc(b)}${momentDone(m) ? ' · <span class="done">✓ tagged</span>' : ''}</div></span><span class="tc">${fmt(M.clock[m.f])}</span>`;
+    el.onclick = () => { activeMoment = k; seek(T[m.f] - 6); stopAt = T[m.f] + 1.5; setPlaying(true); renderAll(); canvas.focus(); };
+    box.appendChild(el);
+  });
+  const mk = $('markers'); mk.innerHTML = '';
+  M.moments.forEach(m => { const d = document.createElement('div'); d.className = 'mk ' + m.type; d.style.left = (T[m.f] / DUR * 100) + '%'; d.style.background = m.team === 0 ? 'var(--blue)' : 'var(--orange)'; mk.appendChild(d); });
+  review.tags.forEach(g => { const d = document.createElement('div'); d.className = 'mk tagm'; d.style.left = (g.t / DUR * 100) + '%'; mk.appendChild(d); });
+  $('tagCount').textContent = review.tags.length ? `(${review.tags.length})` : '';
+  const tb = $('tags'); tb.innerHTML = '';
+  if (!review.tags.length) { tb.innerHTML = '<div class="empty">No tags yet. Pause on a moment that matches this week\'s focus and press <b>Tag this moment</b> (or <b>T</b>). Each tag is a rep: what happened, and what you should have done.</div>'; return; }
+  [...review.tags].sort((a, b) => a.t - b.t).forEach(g => {
+    const el = document.createElement('div'); el.className = 'tag';
+    el.innerHTML = `<div class="h"><span>${esc(g.cat)}</span><span style="font-family:var(--mono);color:var(--mute)">${esc(g.clock || fmtT(g.t))}</span></div><div class="n"></div><button class="x" type="button">Delete</button>`;
+    el.querySelector('.n').textContent = g.note || '(no note)';
+    el.onclick = e => { if (e.target.classList.contains('x')) { review.tags = review.tags.filter(x => x !== g); changed(); return; } seek(g.t - 3); stopAt = g.t + 1; setPlaying(true); };
+    tb.appendChild(el);
+  });
+}
+function openTag() {
+  if (!M) return;
+  setPlaying(false);
+  $('tagCat').value = curFocus().cat; $('tagNote').value = '';
+  $('tagWhen').textContent = `Game clock ${fmt(M.clock[frameAt(t)])} (replay time ${fmtT(t)})`;
+  $('tagDlg').showModal(); $('tagNote').focus();
+}
+$('tagBtn').onclick = openTag;
+$('tagCancel').onclick = () => $('tagDlg').close();
+$('tagForm').onsubmit = e => {
+  e.preventDefault();
+  const i = frameAt(t);
+  // the full scene at this moment, for a future "make it a drill" button
+  const snapShot = { ball: M.ball[i] || null, cars: P.map(p => ({ name: p.name, team: p.team, s: p.track[i] || null, boost: p.boost[i] })) };
+  review.tags.push({ t: +t.toFixed(2), clock: fmt(M.clock[i]), cat: $('tagCat').value, note: $('tagNote').value.trim().slice(0, 300), snap: snapShot });
+  $('tagDlg').close(); changed(); toast('Tag saved');
+};
+function tab(which) {
+  $('tabMoments').setAttribute('aria-selected', which === 'm'); $('tabTags').setAttribute('aria-selected', which === 't');
+  $('paneMoments').hidden = which !== 'm'; $('paneTags').hidden = which !== 't';
+}
+$('tabMoments').onclick = () => tab('m'); $('tabTags').onclick = () => tab('t');
+
+// ================= saving =================
+let saveT = 0;
+function changed() { store.set('replaylab:' + M.id, review.tags); renderAll(); queueSave(); }
+function queueSave() { clearTimeout(saveT); saveT = setTimeout(saveNow, 700); }
+async function saveNow() {
+  if (!M) return;
+  if (!backend.ok) { if (backend.reason === 'no-code' && review.tags.length === 1 && !$('gate').open) $('gate').showModal(); return; }
+  const d = M.meta, mine = myTeam === 0 ? d.Team0Score : d.Team1Score, theirs = myTeam === 0 ? d.Team1Score : d.Team0Score;
+  const payload = {
+    id: M.id, date: (d.Date || '').split(' ')[0], mode: `${d.TeamSize}v${d.TeamSize}`,
+    opponent: P.filter(p => p.team !== myTeam).map(p => short(p.name)).join(', '),
+    result: `${mine > theirs ? 'W' : mine < theirs ? 'L' : 'T'} ${mine}-${theirs}`,
+    tags: review.tags,
+  };
+  setSync('warn', 'Saving…');
+  try {
+    await api('saveReplayReview', payload);
+    const i = backend.reviews.findIndex(r => r.id === M.id);
+    const copy = Object.assign({}, payload, { tags: review.tags.slice() });
+    if (i >= 0) backend.reviews[i] = copy; else backend.reviews.push(copy);
+    setSync('ok', 'Saved to Career Mode');
+  } catch (e) { setSync('bad', 'Not saved: ' + e.message + '. Tags stay on this PC'); }
+}
+
+// ================= opening a replay =================
+async function openFile(file) {
+  if (!file) return;
+  if (!/\.replay$/i.test(file.name)) { $('startMsg').innerHTML = '<span class="err">That isn\'t a .replay file.</span>'; return; }
+  $('start').hidden = false; $('startMsg').textContent = 'Reading ' + file.name + '…';
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    const match = await parseReplay(new Uint8Array(await file.arrayBuffer()));
+    if (!match.players.length || !match.t.length) throw new Error('No match data in this replay');
+    $('startMsg').textContent = '';
+    boot(match);
+  } catch (e) {
+    console.error(e);
+    $('startMsg').innerHTML = `<span class="err">Couldn't read that replay (${esc(e.message || e)}). If Rocket League just updated, the parser may need an update too.</span>`;
+  }
+}
+const dz = $('drop');
+dz.onclick = () => $('file').click();
+dz.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
+$('file').onchange = () => { openFile($('file').files[0]); $('file').value = ''; };
+['dragenter', 'dragover'].forEach(ev => addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => addEventListener(ev, e => { e.preventDefault(); if (ev === 'dragleave' && e.relatedTarget) return; dz.classList.remove('over'); }));
+addEventListener('drop', e => openFile(e.dataTransfer.files[0]));
+$('newReplay').onclick = () => { setPlaying(false); $('start').hidden = false; $('startMsg').textContent = ''; };
+$('copyPath').onclick = async () => { const p = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos'; try { await navigator.clipboard.writeText(p); toast('Folder path copied'); } catch (e) { toast('Copy failed. Select the path and copy it'); } };
+$('pathTxt').textContent = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos';
+
+// ================= start =================
+resize();
+requestAnimationFrame(render);
+initParser().catch(e => { $('startMsg').innerHTML = `<span class="err">The replay reader didn't load (${esc(e.message || e)}). Refresh the page.</span>`; });
+connect();
+if (!FAMILY) setTimeout(() => { if (!$('gate').open) $('gate').showModal(); }, 400);
+// test hook: lets automated tests open a replay without a file picker
+window.__replayLab = { openFile, get state() { return { M, t, review, backend }; } };
+</script>
+</body>
+</html>
