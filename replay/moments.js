@@ -12,7 +12,7 @@ const CHALLENGE_NEAR = 300;                // or: opponent this close to the bal
 const PAST_RANGE = 2500;                   // "ball got past" only counts if the player was in the play
 
 export const MOMENT_TYPES = {
-  goal: 'Goal', shot: 'Shot', save: 'Save', kickoff: 'Kickoff', challenge: '50/50',
+  goal: 'Goal', shot: 'Shot', save: 'Save', kickoff: 'Kickoff', kickoffgoal: 'Kickoff goal', challenge: '50/50',
   turnover: 'Turnover', clear: 'Clear', past: 'Ball got past', demo: 'Demo',
   doublecommit: 'Double commit', reset: 'Flip reset',
 };

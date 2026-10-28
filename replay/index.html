@@ -52,6 +52,17 @@ header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px ma
 .banner{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.9);font-family:var(--display);font-size:60px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;text-shadow:0 4px 30px rgba(0,0,0,.6);white-space:nowrap;text-align:center}
 .banner.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .banner small{display:block;font-family:var(--body);font-weight:700;font-size:18px;letter-spacing:.1em;text-transform:uppercase}
+.boost .ss{position:absolute;left:50%;top:-22px;transform:translateX(-50%);font-family:var(--display);font-size:11px;color:#fff;background:rgba(255,255,255,.18);border:1px solid #fff;border-radius:6px;padding:1px 6px;white-space:nowrap}
+.meters{position:absolute;bottom:14px;display:flex;gap:10px;pointer-events:none}
+.meters.left{left:14px}.meters.right{right:14px}
+.meter{width:84px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.meter svg{width:64px;height:64px}
+.meter .mn{font-size:11px;font-weight:700;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 3px #000}
+.meter .mv{position:relative;width:64px;height:64px}
+.meter .mv b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--display);font-size:18px}
+.meter .mss{font-size:9px;font-weight:700;color:#fff;background:rgba(255,255,255,.2);border-radius:4px;padding:0 4px;visibility:hidden}
+.meter .mss.on{visibility:visible}
+.mo.cur,.mrow.cur{background:var(--deck2);border-color:var(--gold)}
 .ballmark{position:absolute;left:0;top:0;border-radius:50%;border:3px solid var(--gold);box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 14px rgba(255,210,63,.7);pointer-events:none}
 .ballind{position:absolute;left:0;top:0;width:44px;height:44px;pointer-events:none}
 .ballind .arr{position:absolute;inset:0;border-radius:50%;background:rgba(11,16,48,.85);border:3px solid var(--gold)}
@@ -82,7 +93,8 @@ header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px ma
 .rec{display:flex;align-items:stretch;background:var(--deck);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .rec:hover{border-color:var(--gold)}
 .rec .open{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;background:none;border:0;padding:9px 12px;text-align:left;cursor:pointer;font-size:13px}
-.rec .open b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec .open b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rec .fname{display:block;font-family:var(--mono);font-size:11px;font-weight:400;color:var(--mute);overflow:hidden;text-overflow:ellipsis}
 .rec .open span{color:var(--gold);font-weight:700;white-space:nowrap}
 .rec .rm{background:none;border:0;border-left:1px solid var(--line);color:var(--mute);padding:0 12px;cursor:pointer;font-size:16px}
 .rec .rm:hover{color:var(--pink)}
@@ -207,9 +219,10 @@ dialog .row{justify-content:flex-end;margin-top:14px}
       <div class="boost" id="boostEl">
         <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="rgba(11,16,48,.85)" stroke="#2c3680" stroke-width="8"/>
           <circle id="boostArc" cx="60" cy="60" r="50" fill="none" stroke="#ffd23f" stroke-width="8" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" transform="rotate(135 60 60)"/></svg>
-        <div class="num" id="boostNum">0</div><div class="lbl">BOOST</div>
+        <div class="num" id="boostNum">0</div><div class="lbl">BOOST</div><div class="ss" id="ssTag" hidden>SUPERSONIC</div>
       </div>
       <div class="banner" id="banner"></div>
+      <div class="meters left" id="metersL"></div><div class="meters right" id="metersR"></div>
       <div class="ballmark" id="ballMark" hidden></div>
       <div class="ballind" id="ballInd" hidden><div class="arr"></div><span></span></div>
     </div>
@@ -260,8 +273,12 @@ dialog .row{justify-content:flex-end;margin-top:14px}
       <input type="range" id="scrub" min="0" max="1" step="0.01" value="0" aria-label="Replay timeline" disabled></div>
     <div class="row">
       <button class="btn play" id="play" aria-label="Play" type="button">▶</button>
-      <button class="btn" id="back5" type="button" title="Back 5 seconds">−5s</button>
-      <button class="btn" id="fwd5" type="button" title="Forward 5 seconds">+5s</button>
+      <button class="btn" id="toStart" type="button" title="Start of the match">⏮ Start</button>
+      <button class="btn" id="back5" type="button" title="Back 5 seconds (↓)">−5s</button>
+      <button class="btn" id="back1" type="button" title="Back 1 second (←)">−1s</button>
+      <button class="btn" id="fwd1" type="button" title="Forward 1 second (→)">+1s</button>
+      <button class="btn" id="fwd5" type="button" title="Forward 5 seconds (↑)">+5s</button>
+      <button class="btn primary" id="resumeBtn" type="button" hidden></button>
       <span class="time" id="time">0:00.0 / 0:00.0</span>
       <div class="grp" id="speeds"></div>
       <div class="grp" id="cams"></div>
@@ -269,7 +286,7 @@ dialog .row{justify-content:flex-end;margin-top:14px}
       <div class="spacer"></div>
       <button class="btn primary" id="tagBtn" type="button">+ Tag this moment</button>
     </div>
-    <div class="kbd"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> 5s · <kbd>,</kbd><kbd>.</kbd> frame step · <kbd>1</kbd>–<kbd>9</kbd> cameras · <kbd>B</kbd> ball cam · <kbd>T</kbd> tag · drag in Orbit view to look around</div>
+    <div class="kbd"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> 1s · <kbd>↓</kbd><kbd>↑</kbd> 5s · <kbd>,</kbd><kbd>.</kbd> frame step · <kbd>1</kbd>–<kbd>9</kbd> cameras · <kbd>B</kbd> ball cam · <kbd>T</kbd> tag · drag in Orbit view to look around</div>
   </div>
 </div>
 
@@ -458,6 +475,7 @@ function label(text, col) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
   sp.scale.set(320, 60, 1); sp.renderOrder = 10; return sp;
 }
+const CAR_TRAIL = 45, SUPERSONIC = 2200, LEAD = 5;   // LEAD: seconds shown before every moment
 function makeCar(team, name) {
   const g = new THREE.Group(), col = TEAMCOL[team];
   const body = new THREE.MeshStandardMaterial({ color: col, roughness: .4, metalness: .3 });
@@ -471,9 +489,25 @@ function makeCar(team, name) {
   [[46,40],[46,-40],[-28,40],[-28,-40]].forEach(([x,z]) => add(wg, dark, x, -3, z));
   const flame = add(new THREE.ConeGeometry(8, 42, 10), new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: .7 }), -70, 4, 0);
   flame.rotation.z = Math.PI/2; flame.visible = false;
+  // supersonic streaks (white lines behind the car, like the in-game effect)
+  const sonic = new THREE.Group();
+  const sm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .55 });
+  [[16, 34], [4, -34], [28, 0]].forEach(([y, z]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(70, 1.5, 1.5), sm); b.position.set(-90, y, z); sonic.add(b); });
+  sonic.visible = false; g.add(sonic);
+  // flip-reset indicator: a flashing ring under the car
+  const reset = new THREE.Mesh(new THREE.RingGeometry(70, 86, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+  reset.rotation.x = -Math.PI / 2; reset.position.set(10, -22, 0); reset.visible = false; g.add(reset);
   const holder = new THREE.Group(); holder.add(g);
   const lb = label(short(name), team ? '#ffc79b' : '#a9d8ff');
-  return { holder, flame, lb };
+  // trail: where the car came from over the last ~1.5 s
+  const tg = new THREE.BufferGeometry();
+  tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CAR_TRAIL * 3), 3));
+  const tc = new Float32Array(CAR_TRAIL * 4), rgb = new THREE.Color(col);
+  for (let k = 0; k < CAR_TRAIL; k++) tc.set([rgb.r, rgb.g, rgb.b, (k / CAR_TRAIL) * .85], k * 4);
+  tg.setAttribute('color', new THREE.BufferAttribute(tc, 4));
+  const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false }));
+  trail.frustumCulled = false;
+  return { holder, flame, lb, sonic, reset, trail, tg };
 }
 
 // ================= per-match state =================
@@ -487,7 +521,7 @@ let t = 0, playing = false, speed = 1, stopAt = null, lastNow = performance.now(
 const posB = new THREE.Vector3(), qB = new THREE.Quaternion();
 let posC = [], qC = [];
 let review = { tags: [] }, focusMode = 'where';
-let A = { game: null, beats: [] }, oppStats = null, curBytes = null, curName = '', D = null;
+let A = { game: null, beats: [] }, oppStats = null, curBytes = null, curName = '', D = null, resetTimes = [];
 
 const qb2 = new THREE.Quaternion(), pb = new THREE.Vector3();
 function decode(e, out, q) { out.set(e[0], e[2], e[1]); q.set(-e[3], -e[5], -e[4], e[6]).normalize(); }
@@ -508,7 +542,9 @@ function boot(match) {
   myTeam = P[ME].team;
   // clear old match objects
   while (matchGroup.children.length) matchGroup.remove(matchGroup.children[0]);
-  cars = P.map(p => { const c = makeCar(p.team, p.name); matchGroup.add(c.holder, c.lb); return c; });
+  cars = P.map(p => { const c = makeCar(p.team, p.name); matchGroup.add(c.holder, c.lb, c.trail); return c; });
+  resetTimes = P.map(p => (M.resets || []).filter(r => r.key === p.key).map(r => T[r.f]));
+  buildMeters();
   posC = P.map(() => new THREE.Vector3()); qC = P.map(() => new THREE.Quaternion()); lastDir = P.map(() => new THREE.Vector3(0, 0, 1));
   // boost pads with pickup state per frame
   const padM = new THREE.MeshStandardMaterial({ color: 0xffb020, emissive: 0xff9a00, emissiveIntensity: .7 });
@@ -550,11 +586,12 @@ function boot(match) {
   setCam('p' + ME);
   tab('b');
   renderAll();
+  // always open at the start of the match; offer to continue where you left off
   const resume = store.get('replaylab:pos:' + M.id, null);
-  const first = M.moments.find(m => m.type === 'goal' && m.team !== myTeam) || M.moments[0];
-  activeMoment = -1;
-  if (typeof resume === 'number' && resume > 0) { seek(resume); toast('Picked up where you left off'); }
-  else if (first) { activeMoment = M.moments.indexOf(first); seek(T[first.f] - 6); } else seek(0);
+  activeMoment = -1; seek(0);
+  const rb = $('resumeBtn');
+  rb.hidden = !(typeof resume === 'number' && resume > 5 && resume < DUR - 2);
+  if (!rb.hidden) { rb.textContent = `Continue from ${fmt(M.clock[frameAt(resume)])}`; rb.onclick = () => { seek(resume); rb.hidden = true; }; }
   setPlaying(false); renderAll();
 }
 function mergeBackendTags() {
@@ -591,12 +628,27 @@ function playerCam(idx, i, dtS, hasBall) {
   camera.fov = hfovToV(s.fov || 110, camera.aspect); camera.updateProjectionMatrix();
   return bc;
 }
+// small boost meters for every player (Orbit and Stadium): other team bottom left, West's team bottom right
+function buildMeters() {
+  const mk = (k) => { const p = P[k], col = p.team === 0 ? '#2fa8ff' : '#ff8a1f';
+    return `<div class="meter" data-k="${k}"><span class="mss">SUPERSONIC</span><div class="mv"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="rgba(11,16,48,.85)" stroke="#2c3680" stroke-width="10"/><circle class="arc" cx="60" cy="60" r="50" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314" transform="rotate(135 60 60)"/></svg><b>0</b></div><span class="mn" style="color:${col}">${esc(short(p.name))}</span></div>`; };
+  $('metersL').innerHTML = P.map((p, k) => p.team !== myTeam ? mk(k) : '').join('');
+  $('metersR').innerHTML = P.map((p, k) => p.team === myTeam && k !== ME ? mk(k) : '').join('') + mk(ME);
+}
+function updateMeters(i) {
+  document.querySelectorAll('.meter').forEach(el => {
+    const k = +el.dataset.k, b = P[k].boost[i] || 0;
+    el.querySelector('b').textContent = b; el.querySelector('.arc').style.strokeDashoffset = 314 - 235.5 * b / 100;
+    el.querySelector('.mss').classList.toggle('on', !!P[k]._sonic);
+  });
+}
 function setCam(id) {
   camMode = id; snap = true; controls.enabled = id === 'orbit';
   [...$('cams').children].forEach(c => c.setAttribute('aria-pressed', c.dataset.id === id));
   const c = CAMS.find(x => x.id === id); $('camName').textContent = c ? c.label : '';
   const isP = id.startsWith('p');
   $('boostEl').hidden = !isP; $('ballcamBtn').hidden = !isP; $('ballcamChip').hidden = !isP;
+  $('metersL').hidden = $('metersR').hidden = isP;
   if (id === 'stadium') { camera.position.set(0, 4200, -9600); camera.lookAt(0, 0, -600); camera.fov = hfovToV(100, camera.aspect); camera.updateProjectionMatrix(); }
   if (id === 'orbit') { const tg = ball.visible ? ball.position.clone() : new THREE.Vector3(); controls.target.copy(tg); camera.position.copy(tg).add(new THREE.Vector3(0, 1400, -2200)); camera.fov = hfovToV(100, camera.aspect); camera.updateProjectionMatrix(); }
 }
@@ -608,6 +660,17 @@ function cycleBallcam() {
 $('ballcamBtn').onclick = cycleBallcam;
 
 // ================= render loop =================
+// highlight the moment the replay is at, in the Moments and Data lists, and keep it in view while playing
+let lastHi = 0;
+function highlightCurrent(i) {
+  ['moments', 'beats'].forEach(id => {
+    const box = $(id); if (!box) return;
+    const rows = [...box.querySelectorAll('[data-f]')]; let cur = null;
+    rows.forEach(r => { if (+r.dataset.f <= i + 2) cur = r; });
+    rows.forEach(r => r.classList.toggle('cur', r === cur));
+    if (cur && playing && !box.closest('.pane').hidden && cur.dataset.shown !== '1') { rows.forEach(r => delete r.dataset.shown); cur.dataset.shown = '1'; cur.scrollIntoView({ block: 'nearest' }); }
+  });
+}
 function showBanner(html, col) { const b = $('banner'); b.innerHTML = html; b.style.color = col; b.classList.add('show'); clearTimeout(bannerTimer); bannerTimer = setTimeout(() => b.classList.remove('show'), 2200); }
 function render(now) {
   requestAnimationFrame(render);
@@ -635,7 +698,22 @@ function render(now) {
   P.forEach((pl, k) => {
     const ok = sample(pl.track, i, w, posC[k], qC[k]), c = cars[k];
     c.holder.visible = ok; c.lb.visible = ok && k !== viewIdx;
-    if (ok) { c.holder.position.copy(posC[k]); c.holder.quaternion.copy(qC[k]); c.lb.position.copy(posC[k]).add(new THREE.Vector3(0, 120, 0)); c.flame.visible = !!pl.boosting[i]; c.flame.scale.y = .8 + Math.random() * .5; }
+    c.trail.visible = ok;
+    if (ok) {
+      c.holder.position.copy(posC[k]); c.holder.quaternion.copy(qC[k]); c.lb.position.copy(posC[k]).add(new THREE.Vector3(0, 120, 0));
+      c.flame.visible = !!pl.boosting[i]; c.flame.scale.y = .8 + Math.random() * .5;
+      const v = pl.vel && pl.vel[i], sp = v ? Math.hypot(v[0], v[1], v[2]) : 0;
+      c.sonic.visible = sp >= SUPERSONIC; pl._sonic = c.sonic.visible;
+      const rt = resetTimes[k] || [], since = rt.reduce((m, x) => (x <= t && t - x < m ? t - x : m), 9);
+      c.reset.visible = since < 1.5; if (c.reset.visible) c.reset.material.opacity = .35 + .65 * Math.abs(Math.sin(since * 12));
+      const arr = c.tg.attributes.position.array; let last = null;
+      for (let j = 0; j < CAR_TRAIL; j++) {
+        const e = pl.track[Math.max(0, i - (CAR_TRAIL - 1 - j))];
+        if (e && (!last || Math.hypot(e[0] - last[0], e[1] - last[1], e[2] - last[2]) < 600)) last = e;
+        if (j === CAR_TRAIL - 1 || !last) arr.set([posC[k].x, posC[k].y, posC[k].z], j * 3); else arr.set([last[0], last[2], last[1]], j * 3);
+      }
+      c.tg.attributes.position.needsUpdate = true;
+    } else pl._sonic = false;
   });
   let bcState = null;
   if (viewIdx >= 0) {
@@ -658,6 +736,8 @@ function render(now) {
     const mine = g.team === myTeam; showBanner((mine ? 'Goal!' : 'Goal against') + `<small>${esc(short(g.player))}</small>`, mine ? '#9fd4ff' : '#ffc08a');
   }
   lastFrameShown = i;
+  if (viewIdx >= 0) $('ssTag').hidden = !P[viewIdx]._sonic; else updateMeters(i);
+  if (now - lastHi > 250) { lastHi = now; highlightCurrent(i); }
   if (playing) savePos(false);
   renderer.render(scene, camera);
   // ball marker (on screen) or edge arrow (off screen)
@@ -694,12 +774,15 @@ function setPlaying(v) { if (!v) savePos(true); playing = v && !!M; $('play').te
 function seek(v) { t = THREE.MathUtils.clamp(v, 0, DUR); snap = true; lastFrameShown = frameAt(t); }
 $('play').onclick = () => setPlaying(!playing);
 $('back5').onclick = () => seek(t - 5); $('fwd5').onclick = () => seek(t + 5);
+$('back1').onclick = () => seek(t - 1); $('fwd1').onclick = () => seek(t + 1);
+$('toStart').onclick = () => { seek(0); $('resumeBtn').hidden = true; };
 $('scrub').oninput = () => { seek(+$('scrub').value); stopAt = null; };
 [.25, .5, 1, 2].forEach(s => { const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = s + '×'; b.setAttribute('aria-pressed', s === 1); b.onclick = () => { speed = s; [...$('speeds').children].forEach(c => c.setAttribute('aria-pressed', c === b)); }; $('speeds').appendChild(b); });
 addEventListener('keydown', e => {
   if (!M || e.target.matches('input,textarea,select') || $('tagDlg').open || $('gate').open) return;
   if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); }
-  else if (e.key === 'ArrowLeft') seek(t - 5); else if (e.key === 'ArrowRight') seek(t + 5);
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); seek(t - 1); } else if (e.key === 'ArrowRight') { e.preventDefault(); seek(t + 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); seek(t + 5); } else if (e.key === 'ArrowDown') { e.preventDefault(); seek(t - 5); }
   else if (e.key === ',') { setPlaying(false); seek(T[Math.max(0, frameAt(t) - 1)]); }
   else if (e.key === '.') { setPlaying(false); seek(T[Math.min(N-1, frameAt(t) + 1)]); }
   else if (e.key >= '1' && e.key <= '9' && CAMS[+e.key - 1]) setCam(CAMS[+e.key - 1].id);
@@ -739,9 +822,9 @@ function renderAll() {
   if (!M.moments.length) box.innerHTML = '<div class="empty">No goals, shots or saves found in this replay.</div>';
   M.moments.forEach((m, k) => {
     const [a, b] = describe(m), col = m.team === 0 ? 'var(--blue)' : 'var(--orange)';
-    const el = document.createElement('button'); el.type = 'button'; el.className = 'mo' + (k === activeMoment ? ' active' : ''); el.style.opacity = f.test(m) ? 1 : .45;
+    const el = document.createElement('button'); el.type = 'button'; el.dataset.f = m.f; el.className = 'mo' + (k === activeMoment ? ' active' : ''); el.style.opacity = f.test(m) ? 1 : .45;
     el.innerHTML = `<span class="dot" style="background:${col}"></span><span><div class="t1">${esc(a)}</div><div class="t2">${esc(b)}${momentDone(m) ? ' · <span class="done">✓ tagged</span>' : ''}</div></span><span class="tc">${fmt(M.clock[m.f])}</span>`;
-    el.onclick = () => { activeMoment = k; seek(T[m.f] - 6); stopAt = T[m.f] + 1.5; setPlaying(true); renderAll(); canvas.focus(); };
+    el.onclick = () => { activeMoment = k; seek(T[m.f] - LEAD); stopAt = T[m.f] + 2; setPlaying(true); renderAll(); canvas.focus(); };
     box.appendChild(el);
   });
   const mk = $('markers'); mk.innerHTML = '';
@@ -755,7 +838,7 @@ function renderAll() {
     const el = document.createElement('div'); el.className = 'tag';
     el.innerHTML = `<div class="h"><span>${esc(g.cat)}</span><span style="font-family:var(--mono);color:var(--mute)">${esc(g.clock || fmtT(g.t))}</span></div><div class="n"></div><button class="x" type="button">Delete</button>`;
     el.querySelector('.n').textContent = g.note || '(no note)';
-    el.onclick = e => { if (e.target.classList.contains('x')) { review.tags = review.tags.filter(x => x !== g); changed(); return; } seek(g.t - 3); stopAt = g.t + 1; setPlaying(true); };
+    el.onclick = e => { if (e.target.classList.contains('x')) { review.tags = review.tags.filter(x => x !== g); changed(); return; } seek(g.t - LEAD); stopAt = g.t + 2; setPlaying(true); };
     tb.appendChild(el);
   });
 }
@@ -782,7 +865,7 @@ function tab(which) {
 $('tabBeats').onclick = () => tab('b'); $('tabMoments').onclick = () => tab('m'); $('tabTags').onclick = () => tab('t');
 
 // ================= data: every number and every moment, for every player =================
-const KEY_NUMBERS = ['behindPct', 'defPct', 'midPct', 'attPct', 'lastManPct', 'possessionPct', 'avgBoost', 'emptyBoostPct', 'challenges', 'challengesWon',
+const KEY_NUMBERS = ['goals', 'shots', 'saves', 'goalsAgainst', 'kickoffGoals', 'kickoffGoalsAgainst', 'behindPct', 'defPct', 'midPct', 'attPct', 'lastManPct', 'possessionPct', 'avgBoost', 'emptyBoostPct', 'challenges', 'challengesWon',
   'kickoffs', 'kickoffsWon', 'turnoversLost', 'clears', 'ballPast', 'touches', 'avgSpeed', 'supersonicPct', 'airPct'];
 let dataView = { all: false, type: '', player: '' };
 function fmtNum(v, unit) { if (v === null || v === undefined || v === '') return '–'; return unit === '%' ? Math.round(v) + '%' : unit === 'km/h' ? v + ' km/h' : unit === 'm' ? v + ' m' : String(v); }
@@ -806,11 +889,11 @@ function renderData() {
   $('dType').onchange = () => { dataView.type = $('dType').value; renderData(); };
   $('dPlayer').onchange = () => { dataView.player = $('dPlayer').value; renderData(); };
   list.forEach(m => {
-    const el = document.createElement('button'); el.type = 'button'; el.className = 'mrow';
+    const el = document.createElement('button'); el.type = 'button'; el.className = 'mrow'; el.dataset.f = m.f;
     const me = m.me || {}, f = [me.boost !== undefined ? `boost ${me.boost}` : '', me.kmh !== undefined ? `${me.kmh} km/h` : '', me.distBall != null ? `${me.distBall} m from ball` : '', me.jumped ? 'jumped' : '', me.goalSide === false ? 'not goal-side' : '', me.zone || ''].filter(Boolean).join(' · ');
     const col = m.team === 0 ? 'var(--blue)' : m.team === 1 ? 'var(--orange)' : 'var(--mute)';
     el.innerHTML = `<span class="tc">${fmt(m.clock)}</span><span><b>${esc(MOMENT_TYPES[m.type] || m.type)}</b> · <span style="color:${col}">${esc(short(m.player || ''))}</span>${m.otherName ? ` <span class="mut">vs ${esc(short(m.otherName))}</span>` : ''}<div class="mut">${esc((m.outcome || '').replace(/\s*-_-\s*/g, ' ').trim())}</div><div class="mut">${esc(f)}</div></span>`;
-    el.onclick = () => { seek(T[m.f] - 4); stopAt = T[m.f] + 2; setPlaying(true); canvas.focus(); };
+    el.onclick = () => { seek(T[m.f] - LEAD); stopAt = T[m.f] + 2; setPlaying(true); canvas.focus(); };
     box.appendChild(el);
   });
 }
@@ -829,17 +912,17 @@ function beatsChanged() {
 
 // ================= library sync (Drive + Sheet) =================
 // Save one parsed replay (file + numbers + moments) to the library. Returns 'uploaded' | 'updated' | 'already' | 'local'.
-async function uploadMatch(match, bytes, an) {
+async function uploadMatch(match, bytes, an, fileName) {
   if (!backend.lib) return 'local';
   const id = match.id, inLib = (backend.replays || []).some(r => r.id === id);
   const g = (backend.games || []).find(x => x.id === id), game = an.a.game;
   if (inLib && g && g.analysisVersion === game.analysisVersion) return 'already';
   if (!inLib && !bytes) return 'local';
   const result = `${game.result} ${game.goalsFor}-${game.goalsAgainst}`;
-  const payload = { game, beats: an.a.beats, fileName: '', tables: toTables(match, an.d, an.me, { date: game.date, mode: game.mode, result }) };
+  const payload = { game, beats: an.a.beats, fileName: '', originalName: fileName || '', tables: toTables(match, an.d, an.me, { date: game.date, mode: game.mode, result }) };
   if (!inLib) payload.b64 = bytesToB64(bytes);
   const r = await api('replay', 'add', payload);
-  if (!inLib) backend.replays.push({ id, date: game.date, mode: game.mode, opponent: game.opponent, result, fileId: r.fileId });
+  if (!inLib) backend.replays.push({ id, date: game.date, mode: game.mode, opponent: game.opponent, result, fileId: r.fileId, originalName: fileName || '' });
   backend.games = backend.games.filter(x => x.id !== id).concat([game]);
   backend.beats[id] = an.a.beats.map(b => Object.assign({}, b));
   return inLib ? 'updated' : 'uploaded';
@@ -849,7 +932,7 @@ async function syncLibrary() {
   const inLib = (backend.replays || []).some(r => r.id === M.id);
   setSync('warn', inLib ? 'Updating Career Mode…' : 'Saving replay to Google Drive…');
   try {
-    const res = await uploadMatch(M, curBytes, { me: ME, a: A, d: D });
+    const res = await uploadMatch(M, curBytes, { me: ME, a: A, d: D }, curName);
     if (res === 'uploaded') setSync('ok', 'Replay saved to Google Drive');
     else if (res === 'updated') setSync('ok', 'Saved to Career Mode');
     else setSync('ok', 'Connected to Career Mode');
@@ -876,7 +959,7 @@ async function importMany(files) {
       L.name = `${an.a.game.date} · ${an.a.game.mode} vs ${an.a.game.opponent} (${an.a.game.result} ${an.a.game.goalsFor}-${an.a.game.goalsAgainst})`;
       await remember(match, bytes, files[i].name);
       L.txt = backend.lib ? 'saving to Drive…' : 'kept on this PC'; draw(`Importing ${i + 1} of ${files.length}…`);
-      const res = await uploadMatch(match, bytes, an);
+      const res = await uploadMatch(match, bytes, an, files[i].name);
       tally[res]++;
       L.txt = { uploaded: '✓ saved to Drive', updated: '✓ updated', already: 'already in library', local: 'kept on this PC' }[res]; L.cls = 'ok';
     } catch (e) { tally.failed++; console.warn(files[i].name, e); L.txt = 'couldn\'t read this file'; L.cls = 'bad'; }
@@ -953,8 +1036,8 @@ async function renderRecent() {
   let local = [];
   try { local = await DB.list(); } catch (e) {}
   const byId = {};
-  (backend.replays || []).forEach(r => { byId[r.id] = { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: true, opened: 0 }; });
-  local.forEach(r => { byId[r.id] = Object.assign(byId[r.id] || { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: false }, { local: true, opened: r.opened }); });
+  (backend.replays || []).forEach(r => { byId[r.id] = { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: true, opened: 0, file: r.originalName || '' }; });
+  local.forEach(r => { const o = byId[r.id] || { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: false }; byId[r.id] = Object.assign(o, { local: true, opened: r.opened, file: o.file || r.name || '' }); });
   const list = Object.values(byId).sort((x, y) => String(y.date).localeCompare(String(x.date)) || (y.opened || 0) - (x.opened || 0));
   $('recentWrap').hidden = !list.length;
   $('recentTitle').textContent = backend.lib ? `Your replays (${list.length})` : 'Replays on this PC';
@@ -964,7 +1047,7 @@ async function renderRecent() {
     const beats = (backend.beats || {})[r.id] || [], checked = beats.filter(b => b.confirmed).length;
     const extra = [tags ? `${tags} tag${tags === 1 ? '' : 's'}` : '', beats.length ? `${checked}/${beats.length} checked` : '', backend.lib && !r.drive ? 'not uploaded yet' : ''].filter(Boolean).join(' · ');
     const row = document.createElement('div'); row.className = 'rec';
-    row.innerHTML = `<button class="open" type="button"><b>${esc(r.date)} · ${esc(r.mode)} vs ${esc(r.opponent || '?')}</b><span>${esc(r.result)}${extra ? ' · ' + esc(extra) : ''}</span></button><button class="rm" type="button" aria-label="Remove this replay" title="Remove">×</button>`;
+    row.innerHTML = `<button class="open" type="button"><b>${esc(r.date)} · ${esc(r.mode)} vs ${esc(r.opponent || '?')}${r.file ? `<small class="fname">${esc(r.file)}</small>` : ''}</b><span>${esc(r.result)}${extra ? ' · ' + esc(extra) : ''}</span></button><button class="rm" type="button" aria-label="Remove this replay" title="Remove">×</button>`;
     row.querySelector('.open').onclick = () => openSaved(r.id);
     const rm = row.querySelector('.rm');
     rm.onclick = async () => {

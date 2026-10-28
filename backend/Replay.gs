@@ -19,7 +19,7 @@
 
 const R_HEAD = ['Replay ID', 'Match date', 'Mode', 'Opponent', 'Result', 'Game clock', 'Replay time (s)', 'Category', 'Note', 'Snapshot', 'Saved at'];
 const R_MAX_TAGS = 80;
-const LIB_HEAD = ['Replay ID', 'Match date', 'Mode', 'Opponent', 'Result', 'Drive file ID', 'File name', 'Size (KB)', 'Added at'];
+const LIB_HEAD = ['Replay ID', 'Match date', 'Mode', 'Opponent', 'Result', 'Drive file ID', 'File name', 'Size (KB)', 'Added at', 'Original file name'];
 const GAME_HEAD = ['Replay ID', 'Match date', 'Mode', 'Opponent', 'Result', 'Goals for', 'Goals against', 'Play seconds',
   'Behind ball %', 'Own third %', 'Middle third %', 'Attacking third %', 'Avg boost', 'Empty boost %', 'Beat moments', 'Analysis version', 'Updated at'];
 const BEAT_HEAD = ['Replay ID', 'Match date', 'Goal #', 'Goal clock', 'Beat clock', 'Seconds before goal', 'Distance to ball (m)', 'Distance to own goal (m)',
@@ -59,7 +59,7 @@ function saveReplayReview(r) {
 
 // ---------- library ----------
 function libGet_() {
-  const replays = readRows_('Replays', LIB_HEAD).map(r => ({ id: r[0], date: fmtDate_(r[1]), mode: r[2], opponent: r[3], result: r[4], fileId: r[5], name: r[6], sizeKB: Number(r[7]) || 0, added: String(r[8]) }));
+  const replays = readRows_('Replays', LIB_HEAD).map(r => ({ id: r[0], date: fmtDate_(r[1]), mode: r[2], opponent: r[3], result: r[4], fileId: r[5], name: r[6], sizeKB: Number(r[7]) || 0, added: String(r[8]), originalName: String(r[9] || '') }));
   const games = readRows_('Games', GAME_HEAD).map(r => ({ id: r[0], date: fmtDate_(r[1]), mode: r[2], opponent: r[3], result: r[4], goalsFor: Number(r[5]), goalsAgainst: Number(r[6]),
     playSeconds: Number(r[7]), behindPct: Number(r[8]), defPct: Number(r[9]), midPct: Number(r[10]), attPct: Number(r[11]), avgBoost: Number(r[12]), emptyBoostPct: Number(r[13]), beats: Number(r[14]), analysisVersion: Number(r[15]) }));
   const beats = {};
@@ -86,7 +86,8 @@ function libAdd_(p) {
       const name = clip(p.fileName || (g.date + ' ' + g.mode + ' vs ' + g.opponent + ' (' + g.result + ' ' + g.goalsFor + '-' + g.goalsAgainst + ').replay'), 120).replace(/[\\/:*?"<>|]/g, '-');
       const file = replayFolder_().createFile(Utilities.newBlob(bytes, 'application/octet-stream', name));
       fileId = file.getId();
-      appendRows_(lib, [[g.id, clip(g.date, 10), clip(g.mode, 5), clip(g.opponent, 80), clip(g.result + ' ' + num(g.goalsFor) + '-' + num(g.goalsAgainst), 12), fileId, name, Math.round(bytes.length / 1024), now]], LIB_HEAD.length);
+      if (!lib.getRange(1, LIB_HEAD.length).getValue()) lib.getRange(1, LIB_HEAD.length).setValue(LIB_HEAD[LIB_HEAD.length - 1]).setFontWeight('bold');
+      appendRows_(lib, [[g.id, clip(g.date, 10), clip(g.mode, 5), clip(g.opponent, 80), clip(g.result + ' ' + num(g.goalsFor) + '-' + num(g.goalsAgainst), 12), fileId, name, Math.round(bytes.length / 1024), now, clip(p.originalName, 120)]], LIB_HEAD.length);
     }
     replaceRows_(sheet_('Games', GAME_HEAD), g.id, [[g.id, clip(g.date, 10), clip(g.mode, 5), clip(g.opponent, 80), clip(g.result, 2), num(g.goalsFor), num(g.goalsAgainst), num(g.playSeconds),
       num(g.behindPct), num(g.defPct), num(g.midPct), num(g.attPct), num(g.avgBoost), num(g.emptyBoostPct), (p.beats || []).length, num(g.analysisVersion), now]], GAME_HEAD.length);
