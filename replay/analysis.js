@@ -3,7 +3,8 @@
 // goal-side of the ball to in front of it). Each one gets a proposed cause that West confirms or corrects.
 // Rules live here so they can be improved and re-run over every stored replay.
 
-export const ANALYSIS_VERSION = 1;
+import { ENGINE_VERSION } from './moments.js';
+export const ANALYSIS_VERSION = 100 + ENGINE_VERSION;   // bump to recalculate stored games (beat rules v1 + data engine)
 
 export const CAUSES = {
   save:       'Last-ditch save missed',
