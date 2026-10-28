@@ -3,7 +3,7 @@
 // Rules are deliberately simple and written out so they can be checked and improved; bump
 // ENGINE_VERSION whenever a rule changes so stored games can be recalculated.
 
-export const ENGINE_VERSION = 1;
+export const ENGINE_VERSION = 2;   // v2: kickoff goals
 
 const GOAL_Y = 5120, THIRD = 1707, SUPERSONIC = 2200;
 const KMH = 0.036;                         // uu/s (cm/s) -> km/h
@@ -19,6 +19,8 @@ export const MOMENT_TYPES = {
 
 // [key, label, unit]  unit: '%' = share of active play time, 'n' = count, 'km/h', 'm', 'boost'
 export const NUMBERS = [
+  ['goals', 'Goals', 'n'], ['shots', 'Shots', 'n'], ['saves', 'Saves', 'n'], ['goalsAgainst', 'Goals against', 'n'],
+  ['kickoffGoals', 'Kickoff goals', 'n'], ['kickoffGoalsAgainst', 'Kickoff goals against', 'n'],
   ['playSec', 'Active play', 's'],
   ['behindPct', 'Behind the ball', '%'], ['defPct', 'Own third', '%'], ['midPct', 'Middle third', '%'], ['attPct', 'Attacking third', '%'],
   ['lastManPct', 'Last back (team games)', '%'], ['avgDistBall', 'Avg distance to ball', 'm'],
@@ -30,7 +32,6 @@ export const NUMBERS = [
   ['kickoffs', 'Kickoffs', 'n'], ['kickoffsWon', 'Kickoffs won', 'n'], ['kickoffsLost', 'Kickoffs lost', 'n'],
   ['turnoversLost', 'Turnovers lost', 'n'], ['turnoversWon', 'Turnovers won', 'n'], ['clears', 'Clears', 'n'],
   ['ballPast', 'Ball got past him', 'n'], ['doubleCommits', 'Double commits', 'n'],
-  ['goals', 'Goals', 'n'], ['shots', 'Shots', 'n'], ['saves', 'Saves', 'n'], ['goalsAgainst', 'Goals against', 'n'],
   ['demosGiven', 'Demos given', 'n'], ['demosTaken', 'Demos taken', 'n'], ['flipResets', 'Flip resets', 'n'],
 ];
 
@@ -177,6 +178,22 @@ export function buildData(M) {
     add(m.type, m.f, k, { team: m.team, kmh: m.kmh || null, other: def, outcome: m.type === 'goal' ? 'scored' : m.type === 'save' ? 'saved' : 'on target',
       me: k >= 0 ? facts(k, m.f) : null, them: def >= 0 ? facts(def, m.f) : null, ...ballFacts(m.f) });
   });
+  // ---- kickoff goals: a goal soon after a kickoff, before the defending team ever controls the ball.
+  // One defending touch (a deflection that doesn't stop the play) is allowed; two in a row means they had it.
+  // 1s: up to 10 s after the kickoff touch (the winner often dribbles or flicks); 2s/3s: up to 6 s.
+  const KO_WINDOW = teamSize === 1 ? 10 : 6;
+  const koStarts = moments.filter(m => m.type === 'kickoff').map(m => m.f);
+  goals.forEach(g => {
+    const ko = koStarts.filter(f => f <= g.f).pop(); if (ko === undefined) return;
+    const secs = T[g.f] - T[ko]; if (secs > KO_WINDOW) return;
+    const between = touches.filter(t => t.f >= ko && t.f <= g.f);
+    let run = 0, maxRun = 0, defTouches = 0;
+    between.forEach(t => { if (t.team !== g.team) { defTouches++; run++; maxRun = Math.max(maxRun, run); } else run = 0; });
+    if (maxRun >= 2) return;
+    const k = nameIdx[g.player] ?? -1, [def] = nearestOf(1 - g.team, g.f);
+    add('kickoffgoal', g.f, k, { team: g.team, other: def, secsAfterKickoff: r1(secs), defenderTouches: defTouches,
+      outcome: `scored ${r1(secs)}s after the kickoff${defTouches ? `, ${defTouches} defending touch` : ''}`, me: k >= 0 ? facts(k, g.f) : null, them: def >= 0 ? facts(def, g.f) : null, ...ballFacts(g.f) });
+  });
   (M.demos || []).forEach(d => { const k = keyIdx[d.attacker] ?? -1, o = keyIdx[d.victim] ?? -1; add('demo', d.f, k, { other: o, outcome: o >= 0 ? `${P[o].name} demolished` : 'demolition', me: k >= 0 ? facts(k, d.f) : null }); });
   (M.resets || []).forEach(r => { const k = keyIdx[r.key] ?? -1; if (k >= 0) add('reset', r.f, k, { outcome: 'flip reset', me: facts(k, r.f), ...ballFacts(r.f) }); });
 
@@ -219,6 +236,8 @@ export function buildData(M) {
       clears: cnt('clear'), ballPast: cnt('past'),
       doubleCommits: moments.filter(m => m.type === 'doublecommit' && (m.k === k || m.other === k)).length,
       goals: cnt('goal'), shots: cnt('shot') + cnt('goal'), saves: cnt('save'),
+      kickoffGoals: moments.filter(m => m.type === 'kickoffgoal' && m.team === p.team).length,
+      kickoffGoalsAgainst: moments.filter(m => m.type === 'kickoffgoal' && m.team !== p.team).length,
       goalsAgainst: goals.filter(g => g.team !== p.team).length,
       demosGiven: cnt('demo'), demosTaken: moments.filter(m => m.type === 'demo' && m.other === k).length, flipResets: cnt('reset'),
     };
@@ -247,6 +266,7 @@ export function toTables(M, D, westIdx, info) {
     Boost: f(m.me, 'boost'), 'Speed (km/h)': f(m.me, 'kmh'), 'Distance to ball (m)': f(m.me, 'distBall'), 'Distance to own goal (m)': f(m.me, 'distGoal'),
     Jumped: f(m.me, 'jumped'), 'In the air': f(m.me, 'air'), 'Goal-side': f(m.me, 'goalSide'),
     'Other boost': f(m.them, 'boost'), 'Other speed (km/h)': f(m.them, 'kmh'), 'Other distance to ball (m)': f(m.them, 'distBall'), 'Other goal-side': f(m.them, 'goalSide'),
+    'Seconds after kickoff': m.secsAfterKickoff ?? '', 'Defending touches': m.defenderTouches ?? '',
     'Ball speed (km/h)': m.ballKmh ?? '', 'Ball height (m)': m.ballHeight ?? '', 'Shot speed (km/h)': m.kmh ?? '', 'Seconds to goal': m.secsToGoal ?? '',
     'Engine version': D.version,
   }));
