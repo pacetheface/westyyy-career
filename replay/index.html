@@ -74,6 +74,11 @@ header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px ma
 .past .row{display:flex;justify-content:space-between;gap:12px;background:var(--deck);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
 .past .row span:last-child{color:var(--gold);font-weight:700;white-space:nowrap}
 .err{color:var(--pink);font-weight:600}
+.batch{display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:13px}
+.batch div{display:flex;justify-content:space-between;gap:12px;background:var(--deck);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.batch span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.batch span:last-child{white-space:nowrap;color:var(--mute)}
+.batch .ok{color:var(--mint)!important}.batch .bad{color:var(--pink)!important}
 .rec{display:flex;align-items:stretch;background:var(--deck);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .rec:hover{border-color:var(--gold)}
 .rec .open{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;background:none;border:0;padding:9px 12px;text-align:left;cursor:pointer;font-size:13px}
@@ -214,10 +219,10 @@ dialog .row{justify-content:flex-end;margin-top:14px}
         <h1>Replay <span>Lab</span></h1>
         <p>Open one of your replays to watch it in 3D from your own camera, find this week's focus moments and tag what you'd do differently. Tags count toward Career Mode.</p>
         <div class="drop" id="drop" tabindex="0" role="button" aria-label="Open a replay file">
-          <b>Drop a replay here</b>
-          <small>or click to pick a .replay file</small>
+          <b>Drop replays here</b>
+          <small>or click to pick one or more .replay files</small>
         </div>
-        <input type="file" id="file" accept=".replay" hidden>
+        <input type="file" id="file" accept=".replay" multiple hidden>
         <div class="path"><code id="pathTxt">C:\Users\YOU\Documents\My Games\Rocket League\TAGame\Demos</code><button class="btn" id="copyPath" type="button">Copy folder path</button></div>
         <p style="font-size:13px">In Rocket League, save a replay at the end of a match (Save Replay), and it lands in that folder. Paste the path into the file picker's address bar to jump straight there.</p>
         <p id="startMsg" aria-live="polite"></p>
@@ -823,23 +828,64 @@ function beatsChanged() {
 }
 
 // ================= library sync (Drive + Sheet) =================
+// Save one parsed replay (file + numbers + moments) to the library. Returns 'uploaded' | 'updated' | 'already' | 'local'.
+async function uploadMatch(match, bytes, an) {
+  if (!backend.lib) return 'local';
+  const id = match.id, inLib = (backend.replays || []).some(r => r.id === id);
+  const g = (backend.games || []).find(x => x.id === id), game = an.a.game;
+  if (inLib && g && g.analysisVersion === game.analysisVersion) return 'already';
+  if (!inLib && !bytes) return 'local';
+  const result = `${game.result} ${game.goalsFor}-${game.goalsAgainst}`;
+  const payload = { game, beats: an.a.beats, fileName: '', tables: toTables(match, an.d, an.me, { date: game.date, mode: game.mode, result }) };
+  if (!inLib) payload.b64 = bytesToB64(bytes);
+  const r = await api('replay', 'add', payload);
+  if (!inLib) backend.replays.push({ id, date: game.date, mode: game.mode, opponent: game.opponent, result, fileId: r.fileId });
+  backend.games = backend.games.filter(x => x.id !== id).concat([game]);
+  backend.beats[id] = an.a.beats.map(b => Object.assign({}, b));
+  return inLib ? 'updated' : 'uploaded';
+}
 async function syncLibrary() {
   if (!M || !A.game || !backend.lib) return;
-  const id = M.id, inLib = (backend.replays || []).some(r => r.id === id);
-  const g = (backend.games || []).find(x => x.id === id);
-  if (inLib && g && g.analysisVersion === A.game.analysisVersion) return;   // already stored and up to date
-  if (!inLib && !curBytes) return;
+  const inLib = (backend.replays || []).some(r => r.id === M.id);
   setSync('warn', inLib ? 'Updating Career Mode…' : 'Saving replay to Google Drive…');
   try {
-    const payload = { game: A.game, beats: A.beats, fileName: '', tables: toTables(M, D, ME, { date: A.game.date, mode: A.game.mode, result: `${A.game.result} ${A.game.goalsFor}-${A.game.goalsAgainst}` }) };
-    if (!inLib) payload.b64 = bytesToB64(curBytes);
-    const r = await api('replay', 'add', payload);
-    if (!inLib) backend.replays.push({ id, date: A.game.date, mode: A.game.mode, opponent: A.game.opponent, result: `${A.game.result} ${A.game.goalsFor}-${A.game.goalsAgainst}`, fileId: r.fileId });
-    backend.games = backend.games.filter(x => x.id !== id).concat([A.game]);
-    backend.beats[id] = A.beats.map(b => Object.assign({}, b));
-    setSync('ok', inLib ? 'Saved to Career Mode' : 'Replay saved to Google Drive');
+    const res = await uploadMatch(M, curBytes, { me: ME, a: A, d: D });
+    if (res === 'uploaded') setSync('ok', 'Replay saved to Google Drive');
+    else if (res === 'updated') setSync('ok', 'Saved to Career Mode');
+    else setSync('ok', 'Connected to Career Mode');
     renderRecent();
   } catch (e) { setSync('bad', 'Replay not saved to Drive: ' + e.message); }
+}
+
+// Several files at once: read, analyse and save each one in turn, without opening them in the viewer.
+async function importMany(files) {
+  files = [...files].filter(f => /\.replay$/i.test(f.name));
+  if (!files.length) { $('startMsg').innerHTML = '<span class="err">None of those are .replay files.</span>'; return; }
+  if (files.length === 1) return openFile(files[0]);
+  setPlaying(false); $('start').hidden = false;
+  const box = $('startMsg'), lines = files.map(f => ({ name: f.name, txt: 'waiting' }));
+  const draw = (head) => { box.innerHTML = `<b>${esc(head)}</b><div class="batch">${lines.map(l => `<div><span>${esc(l.name)}</span><span class="${l.cls || ''}">${esc(l.txt)}</span></div>`).join('')}</div>`; };
+  const tally = { uploaded: 0, updated: 0, already: 0, local: 0, failed: 0 };
+  for (let i = 0; i < files.length; i++) {
+    const L = lines[i]; L.txt = 'reading…'; draw(`Importing ${i + 1} of ${files.length}…`);
+    try {
+      const bytes = new Uint8Array(await files[i].arrayBuffer());
+      const match = await parseReplay(bytes);
+      if (!match.players.length || !match.t.length) throw new Error('no match data');
+      const me = findPlayer(match), an = { me, a: analyze(match, me), d: buildData(match) };
+      L.name = `${an.a.game.date} · ${an.a.game.mode} vs ${an.a.game.opponent} (${an.a.game.result} ${an.a.game.goalsFor}-${an.a.game.goalsAgainst})`;
+      await remember(match, bytes, files[i].name);
+      L.txt = backend.lib ? 'saving to Drive…' : 'kept on this PC'; draw(`Importing ${i + 1} of ${files.length}…`);
+      const res = await uploadMatch(match, bytes, an);
+      tally[res]++;
+      L.txt = { uploaded: '✓ saved to Drive', updated: '✓ updated', already: 'already in library', local: 'kept on this PC' }[res]; L.cls = 'ok';
+    } catch (e) { tally.failed++; console.warn(files[i].name, e); L.txt = 'couldn\'t read this file'; L.cls = 'bad'; }
+    draw(`Importing ${i + 1} of ${files.length}…`);
+  }
+  const parts = [tally.uploaded && `${tally.uploaded} saved`, tally.updated && `${tally.updated} updated`, tally.already && `${tally.already} already there`, tally.local && `${tally.local} kept on this PC only`, tally.failed && `${tally.failed} couldn't be read`].filter(Boolean);
+  draw(`Done: ${parts.join(', ')}. Click any replay below to watch it.`);
+  if (backend.lib && tally.uploaded + tally.updated) setSync('ok', 'Replays saved to Google Drive');
+  renderRecent();
 }
 
 // ================= saving =================
@@ -985,10 +1031,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { sav
 const dz = $('drop');
 dz.onclick = () => $('file').click();
 dz.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
-$('file').onchange = () => { openFile($('file').files[0]); $('file').value = ''; };
+$('file').onchange = () => { importMany($('file').files); $('file').value = ''; };
 ['dragenter', 'dragover'].forEach(ev => addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
 ['dragleave', 'drop'].forEach(ev => addEventListener(ev, e => { e.preventDefault(); if (ev === 'dragleave' && e.relatedTarget) return; dz.classList.remove('over'); }));
-addEventListener('drop', e => openFile(e.dataTransfer.files[0]));
+addEventListener('drop', e => importMany(e.dataTransfer.files));
 $('newReplay').onclick = () => { setPlaying(false); $('start').hidden = false; $('startMsg').textContent = ''; renderRecent(); };
 $('copyPath').onclick = async () => { const p = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos'; try { await navigator.clipboard.writeText(p); toast('Folder path copied'); } catch (e) { toast('Copy failed. Select the path and copy it'); } };
 $('pathTxt').textContent = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos';
