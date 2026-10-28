@@ -120,6 +120,13 @@ aside{grid-row:2/4;grid-column:2;border-left:2px solid var(--line);background:va
 .tl input::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid var(--night)}
 .mk{position:absolute;top:4px;width:3px;height:22px;border-radius:2px;transform:translateX(-1px);pointer-events:none}
 .mk.save,.mk.shot{height:12px;top:9px;opacity:.75}
+.mk.beatm{background:var(--pink);bottom:0;top:auto;height:6px;width:6px;border-radius:1px;transform:translateX(-3px) rotate(45deg)}
+.beat{background:var(--deck2);border:1px solid var(--line);border-left:4px solid var(--pink);border-radius:10px;padding:9px 11px;display:flex;flex-direction:column;gap:6px}
+.beat.ok{border-left-color:var(--mint)}
+.beat .bh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px}
+.beat .bf{color:var(--mute);font-size:12px;line-height:1.45}
+.beat label{font-size:12px;color:var(--mute)}
+.beat select{flex:1;min-width:0;background:var(--night);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px;font:600 13px var(--body)}
 .mk.tagm{background:var(--gold);top:0;height:6px;width:6px;border-radius:50%;transform:translateX(-3px)}
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .btn{background:var(--deck2);border:2px solid var(--line);border-radius:10px;padding:6px 11px;font-weight:700;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
@@ -200,12 +207,8 @@ dialog .row{justify-content:flex-end;margin-top:14px}
         <p style="font-size:13px">In Rocket League, save a replay at the end of a match (Save Replay), and it lands in that folder. Paste the path into the file picker's address bar to jump straight there.</p>
         <p id="startMsg" aria-live="polite"></p>
         <div id="recentWrap" hidden>
-          <div class="eyebrow" style="color:var(--mute);margin-bottom:6px">Replays on this PC</div>
+          <div class="eyebrow" style="color:var(--mute);margin-bottom:6px" id="recentTitle">Your replays</div>
           <div class="past" id="recent"></div>
-        </div>
-        <div id="pastWrap" hidden>
-          <div class="eyebrow" style="color:var(--mute);margin-bottom:6px">Your reviews</div>
-          <div class="past" id="past"></div>
         </div>
       </div>
     </div>
@@ -213,9 +216,11 @@ dialog .row{justify-content:flex-end;margin-top:14px}
 
   <aside>
     <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="true" id="tabMoments">Key moments</button>
-      <button role="tab" aria-selected="false" id="tabTags">My tags <span id="tagCount"></span></button>
+      <button role="tab" aria-selected="false" id="tabBeats">Got beat <span id="beatCount"></span></button>
+      <button role="tab" aria-selected="true" id="tabMoments">Moments</button>
+      <button role="tab" aria-selected="false" id="tabTags">Tags <span id="tagCount"></span></button>
     </div>
+    <div class="pane" id="paneBeats" hidden><div id="beats"><div class="empty">Open a replay to see where you got beat.</div></div></div>
     <div class="pane" id="paneMoments">
       <div class="focus">
         <div class="eyebrow">This week's focus from Coach</div>
@@ -277,6 +282,7 @@ dialog .row{justify-content:flex-end;margin-top:14px}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { parseReplay, initParser } from './core.js';
+import { analyze, CAUSES, findPlayer } from './analysis.js';
 
 const $ = id => document.getElementById(id);
 const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
@@ -289,7 +295,7 @@ let toastT; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.
 // ================= backend (same Apps Script as Career Mode) =================
 const API_URL = 'https://script.google.com/macros/s/AKfycbz8Bgoqpp9JFoaRAn_3ZkCS5ncOvW7BxsVJ_Ql6g6MIE0lRTCiiQfqRKiFW3Al4RQ3P9Q/exec';
 let FAMILY = store.get('familyCode', null);
-let backend = { ok: false, reason: 'not-checked', focus: null, reviews: [] };
+let backend = { ok: false, lib: false, reason: 'not-checked', focus: null, reviews: [], replays: [], games: [], beats: {} };
 async function api(action, ...args) {
   if (!FAMILY) throw Object.assign(new Error('No family code'), { code: 'family' });
   const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, args, code: FAMILY }) });
@@ -301,22 +307,24 @@ function setSync(kind, txt) { const s = $('sync'); s.hidden = false; s.className
 async function connect() {
   if (!FAMILY) { backend.reason = 'no-code'; setSync('warn', 'Not signed in. Tags stay on this PC'); return; }
   try {
-    const r = await api('getReplayReviews');
-    backend = { ok: true, reason: '', focus: r.focus, reviews: r.reviews || [] };
-    setSync('ok', 'Connected to Career Mode');
+    let r;
+    try { r = await api('replay', 'library'); backend = { ok: true, lib: true, reason: '', focus: r.focus, reviews: r.reviews || [], replays: r.replays || [], games: r.games || [], beats: r.beats || {} }; }
+    catch (e) {
+      if (!/Unknown action/.test(e.message)) throw e;
+      // backend without the replay library yet: tags still sync, files stay on this PC
+      r = await api('getReplayReviews');
+      backend = { ok: true, lib: false, reason: '', focus: r.focus, reviews: r.reviews || [], replays: [], games: [], beats: {} };
+    }
+    setSync('ok', backend.lib ? 'Connected to Career Mode' : 'Connected (replay library needs the backend update)');
+    if (M) { syncLibrary(); renderAll(); }
   } catch (e) {
     if (e.code === 'family') { FAMILY = null; store.set('familyCode', null); backend.reason = 'no-code'; setSync('warn', 'Family code didn\'t work. Tags stay on this PC'); return; }
     backend.reason = /Unknown action/.test(e.message) ? 'old-backend' : 'offline';
     setSync('warn', backend.reason === 'old-backend' ? 'Career Mode needs the replay update. Tags stay on this PC' : 'Offline. Tags stay on this PC');
   }
-  renderCoachFocus(); renderPast();
+  renderCoachFocus(); renderRecent();
 }
 function renderCoachFocus() { $('coachFocus').textContent = backend.focus && backend.focus.text ? backend.focus.text : 'No focus set yet'; }
-function renderPast() {
-  const list = (backend.reviews || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 8);
-  $('pastWrap').hidden = !list.length;
-  $('past').innerHTML = list.map(r => `<div class="row"><span>${esc(r.date || '')} · ${esc(r.mode || '')} vs ${esc(r.opponent || '?')} · ${esc(r.result || '')}</span><span>${r.tags.length} tag${r.tags.length === 1 ? '' : 's'}</span></div>`).join('');
-}
 $('gateForm').onsubmit = async e => {
   e.preventDefault(); const v = $('gateIn').value.trim(); if (!v) return;
   FAMILY = v; store.set('familyCode', v); $('gateMsg').textContent = 'Checking…';
@@ -458,6 +466,7 @@ let t = 0, playing = false, speed = 1, stopAt = null, lastNow = performance.now(
 const posB = new THREE.Vector3(), qB = new THREE.Quaternion();
 let posC = [], qC = [];
 let review = { tags: [] }, focusMode = 'where';
+let A = { game: null, beats: [] }, oppStats = null, curBytes = null, curName = '';
 
 const qb2 = new THREE.Quaternion(), pb = new THREE.Vector3();
 function decode(e, out, q) { out.set(e[0], e[2], e[1]); q.set(-e[3], -e[5], -e[4], e[6]).normalize(); }
@@ -509,9 +518,15 @@ function boot(match) {
   // tags: Career Mode copy wins, else this PC's copy
   review = { tags: store.get('replaylab:' + M.id, []) };
   mergeBackendTags();
+  // analysis: game stats + where West got beat; keep any causes he already confirmed
+  A = analyze(M, ME);
+  oppStats = P.length === 2 ? analyze(M, P.findIndex((p, k) => k !== ME)).game : null;
+  const saved = (backend.beats || {})[M.id] || store.get('replaylab:beats:' + M.id, []);
+  A.beats.forEach(b => { const s = saved.find(x => Number(x.n) === b.n); if (s && s.confirmed) b.confirmed = s.confirmed; });
   $('scrub').max = DUR; $('scrub').disabled = false;
   $('start').hidden = true; $('hud').hidden = false; $('newReplay').hidden = false;
   setCam('p' + ME);
+  tab(A.beats.length ? 'b' : 'm');
   renderAll();
   const resume = store.get('replaylab:pos:' + M.id, null);
   const first = M.moments.find(m => m.type === 'goal' && m.team !== myTeam) || M.moments[0];
@@ -710,6 +725,8 @@ function renderAll() {
   const mk = $('markers'); mk.innerHTML = '';
   M.moments.forEach(m => { const d = document.createElement('div'); d.className = 'mk ' + m.type; d.style.left = (T[m.f] / DUR * 100) + '%'; d.style.background = m.team === 0 ? 'var(--blue)' : 'var(--orange)'; mk.appendChild(d); });
   review.tags.forEach(g => { const d = document.createElement('div'); d.className = 'mk tagm'; d.style.left = (g.t / DUR * 100) + '%'; mk.appendChild(d); });
+  A.beats.forEach(b => { const d = document.createElement('div'); d.className = 'mk beatm'; d.style.left = (T[b.beatFrame] / DUR * 100) + '%'; mk.appendChild(d); });
+  renderBeats();
   $('tagCount').textContent = review.tags.length ? `(${review.tags.length})` : '';
   const tb = $('tags'); tb.innerHTML = '';
   if (!review.tags.length) { tb.innerHTML = '<div class="empty">No tags yet. Pause on a moment that matches this week\'s focus and press <b>Tag this moment</b> (or <b>T</b>). Each tag is a rep: what happened, and what you should have done.</div>'; return; }
@@ -739,10 +756,73 @@ $('tagForm').onsubmit = e => {
   $('tagDlg').close(); changed(); toast('Tag saved');
 };
 function tab(which) {
-  $('tabMoments').setAttribute('aria-selected', which === 'm'); $('tabTags').setAttribute('aria-selected', which === 't');
-  $('paneMoments').hidden = which !== 'm'; $('paneTags').hidden = which !== 't';
+  [['b', 'tabBeats', 'paneBeats'], ['m', 'tabMoments', 'paneMoments'], ['t', 'tabTags', 'paneTags']].forEach(([k, tb, pn]) => { $(tb).setAttribute('aria-selected', which === k); $(pn).hidden = which !== k; });
 }
-$('tabMoments').onclick = () => tab('m'); $('tabTags').onclick = () => tab('t');
+$('tabBeats').onclick = () => tab('b'); $('tabMoments').onclick = () => tab('m'); $('tabTags').onclick = () => tab('t');
+
+// ================= where West got beat =================
+function renderBeats() {
+  const box = $('beats'); box.innerHTML = '';
+  const g = A.game; if (!g) return;
+  $('beatCount').textContent = A.beats.length ? `(${A.beats.length})` : '';
+  const stat = document.createElement('div'); stat.className = 'focus';
+  const vs = oppStats ? ` <span style="color:var(--mute);font-family:var(--body);font-size:13px">(opponent ${Math.round(oppStats.behindPct)}%)</span>` : '';
+  stat.innerHTML = `<div class="eyebrow">This game</div><div class="coachfocus">Behind the ball ${Math.round(g.behindPct)}%${vs}</div>
+    <p>Own third ${Math.round(g.defPct)}% · middle ${Math.round(g.midPct)}% · attacking ${Math.round(g.attPct)}% · empty boost ${Math.round(g.emptyBoostPct)}% of the time</p>`;
+  box.appendChild(stat);
+  if (!A.beats.length) { box.insertAdjacentHTML('beforeend', '<div class="empty">No goals against in this game. Nothing to check here.</div>'); return; }
+  const counts = {}; A.beats.forEach(b => { const c = b.confirmed || b.auto; counts[c] = (counts[c] || 0) + 1; });
+  const checked = A.beats.filter(b => b.confirmed).length;
+  box.insertAdjacentHTML('beforeend', `<p class="empty" style="padding:0">For each goal against, this is the moment the ball got past you. Watch it, then confirm what happened or pick the right reason. <b style="color:var(--ink)">${checked} of ${A.beats.length} checked.</b></p>
+    <div class="empty" style="padding:0">${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<b style="color:var(--ink)">${n}×</b> ${esc(CAUSES[c] || c)}`).join(' · ')}</div>`);
+  A.beats.forEach(b => {
+    const el = document.createElement('div'); el.className = 'beat' + (b.confirmed ? ' ok' : '');
+    const facts = [`${b.secsBefore}s before the goal`, `${b.distBall}m from the ball`, `${b.distGoal}m from your goal`, `boost ${b.boost}`, b.jumped ? 'jumped' : 'on the ground', b.retreating ? 'rotating back' : 'moving up'];
+    el.innerHTML = `<div class="bh"><b>Goal against · ${fmt(b.goalClock)}</b><button class="btn" type="button" data-w>▶ Watch</button></div>
+      <div class="bf">${facts.map(esc).join(' · ')}</div>
+      <label>What happened?</label>
+      <div class="row"><select aria-label="What happened at goal ${b.n}">${Object.entries(CAUSES).map(([k, v]) => `<option value="${k}"${(b.confirmed || b.auto) === k ? ' selected' : ''}>${esc(v)}${k === b.auto ? ' (suggested)' : ''}</option>`).join('')}</select>
+      <button class="btn${b.confirmed ? '' : ' primary'}" type="button" data-c>${b.confirmed ? '✓ Checked' : 'Confirm'}</button></div>`;
+    el.querySelector('[data-w]').onclick = () => { seek(T[b.beatFrame] - 3); stopAt = T[b.beatFrame] + 1.2; setPlaying(true); canvas.focus(); };
+    const sel = el.querySelector('select');
+    const confirm = () => { b.confirmed = sel.value; beatsChanged(); };
+    el.querySelector('[data-c]').onclick = confirm;
+    sel.onchange = confirm;
+    box.appendChild(el);
+  });
+}
+let beatT = 0;
+function beatsChanged() {
+  store.set('replaylab:beats:' + M.id, A.beats.map(b => ({ n: b.n, confirmed: b.confirmed })));
+  if (backend.lib) backend.beats[M.id] = A.beats.map(b => Object.assign({}, b));
+  renderBeats(); renderRecent();
+  clearTimeout(beatT);
+  beatT = setTimeout(async () => {
+    if (!backend.lib || !M) return;
+    try { await api('replay', 'saveBeats', M.id, A.beats); setSync('ok', 'Saved to Career Mode'); }
+    catch (e) { setSync('bad', 'Not saved: ' + e.message); }
+  }, 600);
+}
+
+// ================= library sync (Drive + Sheet) =================
+async function syncLibrary() {
+  if (!M || !A.game || !backend.lib) return;
+  const id = M.id, inLib = (backend.replays || []).some(r => r.id === id);
+  const g = (backend.games || []).find(x => x.id === id);
+  if (inLib && g && g.analysisVersion === A.game.analysisVersion) return;   // already stored and up to date
+  if (!inLib && !curBytes) return;
+  setSync('warn', inLib ? 'Updating Career Mode…' : 'Saving replay to Google Drive…');
+  try {
+    const payload = { game: A.game, beats: A.beats, fileName: '' };
+    if (!inLib) payload.b64 = bytesToB64(curBytes);
+    const r = await api('replay', 'add', payload);
+    if (!inLib) backend.replays.push({ id, date: A.game.date, mode: A.game.mode, opponent: A.game.opponent, result: `${A.game.result} ${A.game.goalsFor}-${A.game.goalsAgainst}`, fileId: r.fileId });
+    backend.games = backend.games.filter(x => x.id !== id).concat([A.game]);
+    backend.beats[id] = A.beats.map(b => Object.assign({}, b));
+    setSync('ok', inLib ? 'Saved to Career Mode' : 'Replay saved to Google Drive');
+    renderRecent();
+  } catch (e) { setSync('bad', 'Replay not saved to Drive: ' + e.message); }
+}
 
 // ================= saving =================
 let saveT = 0;
@@ -804,25 +884,53 @@ async function remember(match, bytes, name) {
   store.set('replaylab:last', match.id);
   renderRecent();
 }
+// one list: everything in the Drive library plus anything only on this PC
 async function renderRecent() {
-  let list = [];
-  try { list = (await DB.list()).sort((x, y) => y.opened - x.opened); } catch (e) {}
+  let local = [];
+  try { local = await DB.list(); } catch (e) {}
+  const byId = {};
+  (backend.replays || []).forEach(r => { byId[r.id] = { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: true, opened: 0 }; });
+  local.forEach(r => { byId[r.id] = Object.assign(byId[r.id] || { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: false }, { local: true, opened: r.opened }); });
+  const list = Object.values(byId).sort((x, y) => String(y.date).localeCompare(String(x.date)) || (y.opened || 0) - (x.opened || 0));
   $('recentWrap').hidden = !list.length;
+  $('recentTitle').textContent = backend.lib ? `Your replays (${list.length})` : 'Replays on this PC';
   const box = $('recent'); box.innerHTML = '';
   list.forEach(r => {
-    const tags = (store.get('replaylab:' + r.id, []) || []).length;
+    const tags = Math.max((store.get('replaylab:' + r.id, []) || []).length, ((backend.reviews || []).find(x => x.id === r.id) || { tags: [] }).tags.length);
+    const beats = (backend.beats || {})[r.id] || [], checked = beats.filter(b => b.confirmed).length;
+    const extra = [tags ? `${tags} tag${tags === 1 ? '' : 's'}` : '', beats.length ? `${checked}/${beats.length} checked` : '', backend.lib && !r.drive ? 'not uploaded yet' : ''].filter(Boolean).join(' · ');
     const row = document.createElement('div'); row.className = 'rec';
-    row.innerHTML = `<button class="open" type="button"><b>${esc(r.date)} · ${esc(r.mode)} vs ${esc(r.opponent || '?')}</b><span>${esc(r.result)}${tags ? ` · ${tags} tag${tags === 1 ? '' : 's'}` : ''}</span></button><button class="rm" type="button" aria-label="Remove from this PC" title="Remove from this PC">×</button>`;
+    row.innerHTML = `<button class="open" type="button"><b>${esc(r.date)} · ${esc(r.mode)} vs ${esc(r.opponent || '?')}</b><span>${esc(r.result)}${extra ? ' · ' + esc(extra) : ''}</span></button><button class="rm" type="button" aria-label="Remove this replay" title="Remove">×</button>`;
     row.querySelector('.open').onclick = () => openSaved(r.id);
-    row.querySelector('.rm').onclick = async () => { await DB.remove(r.id); if (store.get('replaylab:last') === r.id) store.set('replaylab:last', null); renderRecent(); };
+    const rm = row.querySelector('.rm');
+    rm.onclick = async () => {
+      if (!rm.dataset.armed) { rm.dataset.armed = '1'; rm.textContent = 'Remove?'; rm.style.color = 'var(--pink)'; setTimeout(() => { if (rm.isConnected) { delete rm.dataset.armed; rm.textContent = '×'; rm.style.color = ''; } }, 4000); return; }
+      rm.textContent = '…';
+      try { await DB.remove(r.id); } catch (e) {}
+      if (store.get('replaylab:last') === r.id) store.set('replaylab:last', null);
+      if (r.drive && backend.lib) {
+        try { await api('replay', 'remove', r.id); backend.replays = backend.replays.filter(x => x.id !== r.id); backend.games = backend.games.filter(x => x.id !== r.id); delete backend.beats[r.id]; backend.reviews = backend.reviews.filter(x => x.id !== r.id); toast('Removed (the file is in Drive trash for 30 days)'); }
+        catch (e) { toast('Could not remove from Drive: ' + e.message); }
+      } else toast('Removed from this PC');
+      renderRecent();
+    };
     box.appendChild(row);
   });
 }
+function b64ToBytes(b64) { const s = atob(b64), out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
+function bytesToB64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 async function openSaved(id) {
   let f = null; try { f = await DB.getFile(id); } catch (e) {}
-  if (!f) { $('startMsg').innerHTML = '<span class="err">That replay isn\'t saved on this PC anymore. Open the file again.</span>'; renderRecent(); return; }
-  const info = ((await DB.list().catch(() => [])) || []).find(x => x.id === id);
-  await openBytes(new Uint8Array(f.bytes), info ? info.name : 'replay');
+  if (f) {
+    const info = ((await DB.list().catch(() => [])) || []).find(x => x.id === id);
+    return openBytes(new Uint8Array(f.bytes), info ? info.name : 'replay');
+  }
+  if (backend.lib && (backend.replays || []).some(r => r.id === id)) {
+    $('start').hidden = false; $('startMsg').textContent = 'Getting the replay from Google Drive…';
+    try { const r = await api('replay', 'file', id); return openBytes(b64ToBytes(r.b64), r.name); }
+    catch (e) { $('startMsg').innerHTML = `<span class="err">Couldn't get it from Drive (${esc(e.message)}).</span>`; return; }
+  }
+  $('startMsg').innerHTML = '<span class="err">That replay isn\'t saved anymore. Open the file again.</span>'; renderRecent();
 }
 
 // ================= opening a replay =================
@@ -839,7 +947,9 @@ async function openBytes(bytes, name) {
     if (!match.players.length || !match.t.length) throw new Error('No match data in this replay');
     $('startMsg').textContent = '';
     boot(match);
+    curBytes = bytes; curName = name;
     remember(match, bytes, name);
+    syncLibrary();
   } catch (e) {
     console.error(e);
     $('startMsg').innerHTML = `<span class="err">Couldn't read that replay (${esc(e.message || e)}). If Rocket League just updated, the parser may need an update too.</span>`;

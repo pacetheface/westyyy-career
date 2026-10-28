@@ -35,7 +35,8 @@ function doGet(e) {
 const ACTIONS = { getAll, saveCheckin, saveStream, coachLogin, saveFocus, saveNote, saveSkills,
   // called lazily so a missing function can't crash the whole script
   requestRefresh: (...a) => requestRefresh(...a),
-  getReplayReviews: (...a) => getReplayReviews(...a), saveReplayReview: (...a) => saveReplayReview(...a) };
+  getReplayReviews: (...a) => getReplayReviews(...a), saveReplayReview: (...a) => saveReplayReview(...a),
+  replay: (...a) => replayAction(...a) };  // all newer Replay Lab actions go through this one entry
 
 function doPost(e) {
   let body;
