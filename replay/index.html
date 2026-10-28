@@ -74,6 +74,14 @@ header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px ma
 .past .row{display:flex;justify-content:space-between;gap:12px;background:var(--deck);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13px}
 .past .row span:last-child{color:var(--gold);font-weight:700;white-space:nowrap}
 .err{color:var(--pink);font-weight:600}
+.rec{display:flex;align-items:stretch;background:var(--deck);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rec:hover{border-color:var(--gold)}
+.rec .open{flex:1;min-width:0;display:flex;justify-content:space-between;gap:12px;background:none;border:0;padding:9px 12px;text-align:left;cursor:pointer;font-size:13px}
+.rec .open b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec .open span{color:var(--gold);font-weight:700;white-space:nowrap}
+.rec .rm{background:none;border:0;border-left:1px solid var(--line);color:var(--mute);padding:0 12px;cursor:pointer;font-size:16px}
+.rec .rm:hover{color:var(--pink)}
+.rec .open:focus-visible,.rec .rm:focus-visible{outline:3px solid var(--gold);outline-offset:-3px}
 
 aside{grid-row:2/4;grid-column:2;border-left:2px solid var(--line);background:var(--deck);display:flex;flex-direction:column;min-height:0}
 .tabs{display:flex;border-bottom:2px solid var(--line)}
@@ -191,6 +199,10 @@ dialog .row{justify-content:flex-end;margin-top:14px}
         <div class="path"><code id="pathTxt">C:\Users\YOU\Documents\My Games\Rocket League\TAGame\Demos</code><button class="btn" id="copyPath" type="button">Copy folder path</button></div>
         <p style="font-size:13px">In Rocket League, save a replay at the end of a match (Save Replay), and it lands in that folder. Paste the path into the file picker's address bar to jump straight there.</p>
         <p id="startMsg" aria-live="polite"></p>
+        <div id="recentWrap" hidden>
+          <div class="eyebrow" style="color:var(--mute);margin-bottom:6px">Replays on this PC</div>
+          <div class="past" id="recent"></div>
+        </div>
         <div id="pastWrap" hidden>
           <div class="eyebrow" style="color:var(--mute);margin-bottom:6px">Your reviews</div>
           <div class="past" id="past"></div>
@@ -310,7 +322,8 @@ $('gateForm').onsubmit = async e => {
   FAMILY = v; store.set('familyCode', v); $('gateMsg').textContent = 'Checking…';
   await connect();
   if (backend.ok || backend.reason === 'old-backend') { $('gate').close(); if (M) { mergeBackendTags(); queueSave(); } }
-  else $('gateMsg').textContent = 'That code didn\'t work. Try again.';
+  else if (backend.reason === 'no-code') $('gateMsg').textContent = 'That code didn\'t work. Try again.';
+  else { FAMILY = v; store.set('familyCode', v); $('gateMsg').textContent = 'Couldn\'t reach Career Mode right now (the backend isn\'t responding). Your code is saved; tags stay on this PC until it\'s back.'; }
 };
 $('gateSkip').onclick = () => $('gate').close();
 
@@ -500,8 +513,11 @@ function boot(match) {
   $('start').hidden = true; $('hud').hidden = false; $('newReplay').hidden = false;
   setCam('p' + ME);
   renderAll();
+  const resume = store.get('replaylab:pos:' + M.id, null);
   const first = M.moments.find(m => m.type === 'goal' && m.team !== myTeam) || M.moments[0];
-  if (first) { activeMoment = M.moments.indexOf(first); seek(T[first.f] - 6); } else seek(0);
+  activeMoment = -1;
+  if (typeof resume === 'number' && resume > 0) { seek(resume); toast('Picked up where you left off'); }
+  else if (first) { activeMoment = M.moments.indexOf(first); seek(T[first.f] - 6); } else seek(0);
   setPlaying(false); renderAll();
 }
 function mergeBackendTags() {
@@ -605,6 +621,7 @@ function render(now) {
     const mine = g.team === myTeam; showBanner((mine ? 'Goal!' : 'Goal against') + `<small>${esc(short(g.player))}</small>`, mine ? '#9fd4ff' : '#ffc08a');
   }
   lastFrameShown = i;
+  if (playing) savePos(false);
   renderer.render(scene, camera);
   // ball marker (on screen) or edge arrow (off screen)
   const ind = $('ballInd'), mark = $('ballMark'); mark.hidden = true; ind.hidden = true;
@@ -636,7 +653,7 @@ function resize() {
 new ResizeObserver(resize).observe($('stage'));
 
 // ================= transport =================
-function setPlaying(v) { playing = v && !!M; $('play').textContent = playing ? '❚❚' : '▶'; $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play'); if (playing && t >= DUR) t = 0; }
+function setPlaying(v) { if (!v) savePos(true); playing = v && !!M; $('play').textContent = playing ? '❚❚' : '▶'; $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play'); if (playing && t >= DUR) t = 0; }
 function seek(v) { t = THREE.MathUtils.clamp(v, 0, DUR); snap = true; lastFrameShown = frameAt(t); }
 $('play').onclick = () => setPlaying(!playing);
 $('back5').onclick = () => seek(t - 5); $('fwd5').onclick = () => seek(t + 5);
@@ -751,22 +768,92 @@ async function saveNow() {
   } catch (e) { setSync('bad', 'Not saved: ' + e.message + '. Tags stay on this PC'); }
 }
 
+// ================= saved replays (kept in this browser on this PC, never uploaded) =================
+const KEEP = 25;
+const DB = (() => {
+  let p;
+  const open = () => p || (p = new Promise((res, rej) => {
+    const r = indexedDB.open('replaylab', 1);
+    r.onupgradeneeded = () => { r.result.createObjectStore('files', { keyPath: 'id' }); r.result.createObjectStore('list', { keyPath: 'id' }); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const run = async (store, mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => { const tx = db.transaction(store, mode); const req = fn(tx.objectStore(store)); tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error); });
+  };
+  return {
+    putFile: rec => run('files', 'readwrite', s => s.put(rec)), getFile: id => run('files', 'readonly', s => s.get(id)),
+    putInfo: rec => run('list', 'readwrite', s => s.put(rec)), list: () => run('list', 'readonly', s => s.getAll()),
+    remove: async id => { await run('files', 'readwrite', s => s.delete(id)); await run('list', 'readwrite', s => s.delete(id)); },
+  };
+})();
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+function summary(match, name) {
+  const d = match.meta, pl = match.players, me = Math.max(0, pl.findIndex(p => /westyyy/i.test(p.name))), mt = pl[me].team;
+  const a = mt === 0 ? d.Team0Score : d.Team1Score, b = mt === 0 ? d.Team1Score : d.Team0Score;
+  return { id: match.id, name, date: (d.Date || '').split(' ')[0], mode: `${d.TeamSize}v${d.TeamSize}`,
+    opponent: pl.filter(p => p.team !== mt).map(p => short(p.name)).join(', '), result: `${a > b ? 'W' : a < b ? 'L' : 'T'} ${a}-${b}`, opened: Date.now() };
+}
+async function remember(match, bytes, name) {
+  try {
+    await DB.putFile({ id: match.id, bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) });
+    await DB.putInfo(summary(match, name));
+    const all = (await DB.list()).sort((x, y) => y.opened - x.opened);
+    for (const old of all.slice(KEEP)) await DB.remove(old.id);
+  } catch (e) { console.warn('Could not keep replay on this PC', e); }
+  store.set('replaylab:last', match.id);
+  renderRecent();
+}
+async function renderRecent() {
+  let list = [];
+  try { list = (await DB.list()).sort((x, y) => y.opened - x.opened); } catch (e) {}
+  $('recentWrap').hidden = !list.length;
+  const box = $('recent'); box.innerHTML = '';
+  list.forEach(r => {
+    const tags = (store.get('replaylab:' + r.id, []) || []).length;
+    const row = document.createElement('div'); row.className = 'rec';
+    row.innerHTML = `<button class="open" type="button"><b>${esc(r.date)} · ${esc(r.mode)} vs ${esc(r.opponent || '?')}</b><span>${esc(r.result)}${tags ? ` · ${tags} tag${tags === 1 ? '' : 's'}` : ''}</span></button><button class="rm" type="button" aria-label="Remove from this PC" title="Remove from this PC">×</button>`;
+    row.querySelector('.open').onclick = () => openSaved(r.id);
+    row.querySelector('.rm').onclick = async () => { await DB.remove(r.id); if (store.get('replaylab:last') === r.id) store.set('replaylab:last', null); renderRecent(); };
+    box.appendChild(row);
+  });
+}
+async function openSaved(id) {
+  let f = null; try { f = await DB.getFile(id); } catch (e) {}
+  if (!f) { $('startMsg').innerHTML = '<span class="err">That replay isn\'t saved on this PC anymore. Open the file again.</span>'; renderRecent(); return; }
+  const info = ((await DB.list().catch(() => [])) || []).find(x => x.id === id);
+  await openBytes(new Uint8Array(f.bytes), info ? info.name : 'replay');
+}
+
 // ================= opening a replay =================
 async function openFile(file) {
   if (!file) return;
   if (!/\.replay$/i.test(file.name)) { $('startMsg').innerHTML = '<span class="err">That isn\'t a .replay file.</span>'; return; }
-  $('start').hidden = false; $('startMsg').textContent = 'Reading ' + file.name + '…';
+  await openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+}
+async function openBytes(bytes, name) {
+  $('start').hidden = false; $('startMsg').textContent = 'Reading ' + name + '…';
   await new Promise(r => setTimeout(r, 30));
   try {
-    const match = await parseReplay(new Uint8Array(await file.arrayBuffer()));
+    const match = await parseReplay(bytes);
     if (!match.players.length || !match.t.length) throw new Error('No match data in this replay');
     $('startMsg').textContent = '';
     boot(match);
+    remember(match, bytes, name);
   } catch (e) {
     console.error(e);
     $('startMsg').innerHTML = `<span class="err">Couldn't read that replay (${esc(e.message || e)}). If Rocket League just updated, the parser may need an update too.</span>`;
   }
 }
+// remember the playback position so coming back picks up at the same moment
+let posSavedAt = 0;
+function savePos(force) {
+  if (!M) return; const now = Date.now();
+  if (!force && now - posSavedAt < 3000) return;
+  posSavedAt = now; store.set('replaylab:pos:' + M.id, +t.toFixed(2));
+}
+addEventListener('pagehide', () => savePos(true));
+document.addEventListener('visibilitychange', () => { if (document.hidden) { savePos(true); setPlaying(false); } });
 const dz = $('drop');
 dz.onclick = () => $('file').click();
 dz.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
@@ -774,14 +861,19 @@ $('file').onchange = () => { openFile($('file').files[0]); $('file').value = '';
 ['dragenter', 'dragover'].forEach(ev => addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
 ['dragleave', 'drop'].forEach(ev => addEventListener(ev, e => { e.preventDefault(); if (ev === 'dragleave' && e.relatedTarget) return; dz.classList.remove('over'); }));
 addEventListener('drop', e => openFile(e.dataTransfer.files[0]));
-$('newReplay').onclick = () => { setPlaying(false); $('start').hidden = false; $('startMsg').textContent = ''; };
+$('newReplay').onclick = () => { setPlaying(false); $('start').hidden = false; $('startMsg').textContent = ''; renderRecent(); };
 $('copyPath').onclick = async () => { const p = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos'; try { await navigator.clipboard.writeText(p); toast('Folder path copied'); } catch (e) { toast('Copy failed. Select the path and copy it'); } };
 $('pathTxt').textContent = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos';
 
 // ================= start =================
 resize();
 requestAnimationFrame(render);
-initParser().catch(e => { $('startMsg').innerHTML = `<span class="err">The replay reader didn't load (${esc(e.message || e)}). Refresh the page.</span>`; });
+renderRecent();
+initParser().then(async () => {
+  // reopen the last replay automatically, at the same spot
+  const last = store.get('replaylab:last', null);
+  if (last && !M) { $('startMsg').textContent = 'Opening your last replay…'; await openSaved(last); if (!M) $('startMsg').textContent = ''; }
+}).catch(e => { $('startMsg').innerHTML = `<span class="err">The replay reader didn't load (${esc(e.message || e)}). Refresh the page.</span>`; });
 connect();
 if (!FAMILY) setTimeout(() => { if (!$('gate').open) $('gate').showModal(); }, 400);
 // test hook: lets automated tests open a replay without a file picker
