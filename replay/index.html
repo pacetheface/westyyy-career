@@ -127,6 +127,15 @@ aside{grid-row:2/4;grid-column:2;border-left:2px solid var(--line);background:va
 .win .bh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px}
 .win .wl{color:var(--mint);font-weight:700;font-size:13px}
 .win .bf{color:var(--mute);font-size:12px}
+.tblwrap{overflow-x:auto}
+.nums{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.nums th{text-align:right;font-weight:700;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.nums td{text-align:right;padding:3px 6px;border-bottom:1px solid rgba(44,54,128,.5);white-space:nowrap}
+.nums td:first-child{text-align:left;color:var(--mute);white-space:normal}
+.mrow{display:grid;grid-template-columns:38px 1fr;gap:8px;text-align:left;background:none;border:1px solid transparent;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:12.5px}
+.mrow:hover,.mrow:focus-visible{background:var(--deck2);border-color:var(--line);outline:none}
+.mrow .tc{font-family:var(--mono);color:var(--mute);font-size:12px}
+.mrow .mut{color:var(--mute);font-size:12px}
 .sect{font-family:var(--display);font-size:15px;margin-top:8px;color:var(--pink)}
 .sect.good{color:var(--mint)}
 .beat .bh{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px}
@@ -222,11 +231,11 @@ dialog .row{justify-content:flex-end;margin-top:14px}
 
   <aside>
     <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="false" id="tabBeats">Review <span id="beatCount"></span></button>
+      <button role="tab" aria-selected="false" id="tabBeats">Data <span id="beatCount"></span></button>
       <button role="tab" aria-selected="true" id="tabMoments">Moments</button>
       <button role="tab" aria-selected="false" id="tabTags">Tags <span id="tagCount"></span></button>
     </div>
-    <div class="pane" id="paneBeats" hidden><div id="beats"><div class="empty">Open a replay to see where you got beat.</div></div></div>
+    <div class="pane" id="paneBeats" hidden><div id="beats"><div class="empty">Open a replay to see its numbers and every moment.</div></div></div>
     <div class="pane" id="paneMoments">
       <div class="focus">
         <div class="eyebrow">This week's focus from Coach</div>
@@ -288,7 +297,8 @@ dialog .row{justify-content:flex-end;margin-top:14px}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { parseReplay, initParser } from './core.js';
-import { analyze, CAUSES, findPlayer, positives } from './analysis.js';
+import { analyze, CAUSES, findPlayer } from './analysis.js';
+import { buildData, toTables, MOMENT_TYPES, NUMBERS } from './moments.js';
 
 const $ = id => document.getElementById(id);
 const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
@@ -472,7 +482,7 @@ let t = 0, playing = false, speed = 1, stopAt = null, lastNow = performance.now(
 const posB = new THREE.Vector3(), qB = new THREE.Quaternion();
 let posC = [], qC = [];
 let review = { tags: [] }, focusMode = 'where';
-let A = { game: null, beats: [] }, oppStats = null, curBytes = null, curName = '', POS = [];
+let A = { game: null, beats: [] }, oppStats = null, curBytes = null, curName = '', D = null;
 
 const qb2 = new THREE.Quaternion(), pb = new THREE.Vector3();
 function decode(e, out, q) { out.set(e[0], e[2], e[1]); q.set(-e[3], -e[5], -e[4], e[6]).normalize(); }
@@ -526,14 +536,14 @@ function boot(match) {
   mergeBackendTags();
   // analysis: game stats + where West got beat; keep any causes he already confirmed
   A = analyze(M, ME);
-  POS = positives(M, ME);
+  D = buildData(M);
   oppStats = P.length === 2 ? analyze(M, P.findIndex((p, k) => k !== ME)).game : null;
   const saved = (backend.beats || {})[M.id] || store.get('replaylab:beats:' + M.id, []);
   A.beats.forEach(b => { const s = saved.find(x => Number(x.n) === b.n); if (s && s.confirmed) b.confirmed = s.confirmed; });
   $('scrub').max = DUR; $('scrub').disabled = false;
   $('start').hidden = true; $('hud').hidden = false; $('newReplay').hidden = false;
   setCam('p' + ME);
-  tab(A.beats.length ? 'b' : 'm');
+  tab('b');
   renderAll();
   const resume = store.get('replaylab:pos:' + M.id, null);
   const first = M.moments.find(m => m.type === 'goal' && m.team !== myTeam) || M.moments[0];
@@ -706,18 +716,11 @@ focusMode = store.get('replaylab:focusMode', 'where'); $('focusSel').value = foc
 $('focusSel').onchange = () => { focusMode = $('focusSel').value; store.set('replaylab:focusMode', focusMode); renderAll(); };
 const curFocus = () => FOCI.find(f => f.id === focusMode) || FOCI[0];
 
-// [title, subtitle, good?]
 function describe(m) {
   const mine = m.team === myTeam, who = short(m.player), me = m.player === P[ME].name, spd = m.kmh ? ` · ${m.kmh} km/h` : '';
-  if (m.type === 'goal') {
-    if (!mine) return ['Goal against you', who, false];
-    const p = POS.find(x => x.kind === 'goal' && x.f === m.f);
-    return ['★ ' + (me ? 'Your goal' : 'Teammate goal'), (p && p.how ? p.how : who) + spd, true];
-  }
-  if (m.type === 'save') return mine ? ['★ ' + (me ? 'Your save' : 'Teammate save'), 'shot on target stopped', true] : ['Saved by ' + who, 'your team\'s shot was stopped', false];
-  if (mine) return ['★ ' + (me ? 'Your shot' : 'Teammate shot'), 'on target' + spd, true];
-  const kept = POS.some(x => x.kind === 'stopped' && x.f === m.f);
-  return kept ? ['★ Kept it out', `${who} shot, it didn't go in`, true] : ['Shot on your goal', who, false];
+  if (m.type === 'goal') return mine ? [me ? 'Your goal' : 'Teammate goal', who + spd] : ['Goal against you', who + spd];
+  if (m.type === 'save') return mine ? [me ? 'Your save' : 'Teammate save', who] : ['Saved by ' + who, 'your team\'s shot was stopped'];
+  return mine ? [me ? 'Your shot' : 'Teammate shot', who + spd] : ['Shot on your goal', who + spd];
 }
 const momentDone = m => { const tt = T[m.f]; return review.tags.some(g => g.t >= tt - 8 && g.t <= tt + 2); };
 function renderAll() {
@@ -730,17 +733,16 @@ function renderAll() {
   const box = $('moments'); box.innerHTML = '';
   if (!M.moments.length) box.innerHTML = '<div class="empty">No goals, shots or saves found in this replay.</div>';
   M.moments.forEach((m, k) => {
-    const [a, b, good] = describe(m), col = m.team === 0 ? 'var(--blue)' : 'var(--orange)';
+    const [a, b] = describe(m), col = m.team === 0 ? 'var(--blue)' : 'var(--orange)';
     const el = document.createElement('button'); el.type = 'button'; el.className = 'mo' + (k === activeMoment ? ' active' : ''); el.style.opacity = f.test(m) ? 1 : .45;
-    el.innerHTML = `<span class="dot" style="background:${col}"></span><span><div class="t1"${good ? ' style="color:var(--mint)"' : ''}>${esc(a)}</div><div class="t2">${esc(b)}${momentDone(m) ? ' · <span class="done">✓ tagged</span>' : ''}</div></span><span class="tc">${fmt(M.clock[m.f])}</span>`;
+    el.innerHTML = `<span class="dot" style="background:${col}"></span><span><div class="t1">${esc(a)}</div><div class="t2">${esc(b)}${momentDone(m) ? ' · <span class="done">✓ tagged</span>' : ''}</div></span><span class="tc">${fmt(M.clock[m.f])}</span>`;
     el.onclick = () => { activeMoment = k; seek(T[m.f] - 6); stopAt = T[m.f] + 1.5; setPlaying(true); renderAll(); canvas.focus(); };
     box.appendChild(el);
   });
   const mk = $('markers'); mk.innerHTML = '';
   M.moments.forEach(m => { const d = document.createElement('div'); d.className = 'mk ' + m.type; d.style.left = (T[m.f] / DUR * 100) + '%'; d.style.background = m.team === 0 ? 'var(--blue)' : 'var(--orange)'; mk.appendChild(d); });
   review.tags.forEach(g => { const d = document.createElement('div'); d.className = 'mk tagm'; d.style.left = (g.t / DUR * 100) + '%'; mk.appendChild(d); });
-  A.beats.forEach(b => { const d = document.createElement('div'); d.className = 'mk beatm'; d.style.left = (T[b.beatFrame] / DUR * 100) + '%'; mk.appendChild(d); });
-  renderBeats();
+  renderData();
   $('tagCount').textContent = review.tags.length ? `(${review.tags.length})` : '';
   const tb = $('tags'); tb.innerHTML = '';
   if (!review.tags.length) { tb.innerHTML = '<div class="empty">No tags yet. Pause on a moment that matches this week\'s focus and press <b>Tag this moment</b> (or <b>T</b>). Each tag is a rep: what happened, and what you should have done.</div>'; return; }
@@ -774,50 +776,36 @@ function tab(which) {
 }
 $('tabBeats').onclick = () => tab('b'); $('tabMoments').onclick = () => tab('m'); $('tabTags').onclick = () => tab('t');
 
-// ================= where West got beat =================
-function renderBeats() {
+// ================= data: every number and every moment, for every player =================
+const KEY_NUMBERS = ['behindPct', 'defPct', 'midPct', 'attPct', 'lastManPct', 'possessionPct', 'avgBoost', 'emptyBoostPct', 'challenges', 'challengesWon',
+  'kickoffs', 'kickoffsWon', 'turnoversLost', 'clears', 'ballPast', 'touches', 'avgSpeed', 'supersonicPct', 'airPct'];
+let dataView = { all: false, type: '', player: '' };
+function fmtNum(v, unit) { if (v === null || v === undefined || v === '') return '–'; return unit === '%' ? Math.round(v) + '%' : unit === 'km/h' ? v + ' km/h' : unit === 'm' ? v + ' m' : String(v); }
+function renderData() {
   const box = $('beats'); box.innerHTML = '';
-  const g = A.game; if (!g) return;
-  const toCheck = A.beats.filter(b => !b.confirmed).length;
-  $('beatCount').textContent = toCheck ? `(${toCheck} to check)` : '';
-  const stat = document.createElement('div'); stat.className = 'focus';
-  const vs = oppStats ? ` <span style="color:var(--mute);font-family:var(--body);font-size:13px">(opponent ${Math.round(oppStats.behindPct)}%)</span>` : '';
-  stat.innerHTML = `<div class="eyebrow">This game</div><div class="coachfocus">Behind the ball ${Math.round(g.behindPct)}%${vs}</div>
-    <p>Own third ${Math.round(g.defPct)}% · middle ${Math.round(g.midPct)}% · attacking ${Math.round(g.attPct)}% · empty boost ${Math.round(g.emptyBoostPct)}% of the time</p>`;
-  box.appendChild(stat);
-  // ---- what he did well (first, always) ----
-  const nGoal = POS.filter(p => p.kind === 'goal' && p.mine).length, nSave = POS.filter(p => p.kind === 'save' && p.mine).length,
-        nShot = POS.filter(p => (p.kind === 'shot' || p.kind === 'goal') && p.mine).length, nStop = POS.filter(p => p.kind === 'stopped').length;
-  const top = Math.max(0, ...POS.filter(p => p.mine && p.kmh).map(p => p.kmh));
-  box.insertAdjacentHTML('beforeend', `<div class="sect good">What you did well</div>
-    <div class="empty" style="padding:0">${[nGoal && `<b style="color:var(--ink)">${nGoal}</b> goal${nGoal > 1 ? 's' : ''}`, nShot && `<b style="color:var(--ink)">${nShot}</b> shot${nShot > 1 ? 's' : ''}`, nSave && `<b style="color:var(--ink)">${nSave}</b> save${nSave > 1 ? 's' : ''}`, nStop && `<b style="color:var(--ink)">${nStop}</b> of their shots kept out`, top && `hardest shot <b style="color:var(--ink)">${top} km/h</b>`].filter(Boolean).join(' · ') || 'Tough game. Look for one good touch or smart rotation and tag it.'}</div>`);
-  POS.filter(p => p.kind !== 'stopped').forEach(p => {
-    const el = document.createElement('div'); el.className = 'win';
-    const title = p.kind === 'goal' ? (p.mine ? 'Your goal' : 'Team goal') : p.kind === 'save' ? (p.mine ? 'Your save' : 'Team save') : (p.mine ? 'Your shot' : 'Team shot');
-    const line = p.kind === 'goal' ? (p.how || 'You scored') + (p.kmh ? ` · ${p.kmh} km/h` : '') : p.kind === 'save' ? 'You stopped a shot on target' : `On target${p.kmh ? ` at ${p.kmh} km/h` : ''}`;
-    el.innerHTML = `<div class="bh"><b>${title} · ${fmt(M.clock[p.f])}</b><button class="btn" type="button">▶ Watch</button></div><div class="wl">${esc(line)}</div>${p.detail ? `<div class="bf">${esc(p.detail)}</div>` : ''}`;
-    el.querySelector('button').onclick = () => { seek(T[p.at] - 4); stopAt = T[p.f] + 1.5; setPlaying(true); canvas.focus(); };
-    box.appendChild(el);
-  });
-  if (!A.beats.length) { box.insertAdjacentHTML('beforeend', '<div class="sect">Where you got beat</div><div class="empty">No goals against in this game. Nothing to fix here.</div>'); return; }
-  box.insertAdjacentHTML('beforeend', '<div class="sect">Where you got beat</div>');
-  const counts = {}; A.beats.forEach(b => { const c = b.confirmed || b.auto; counts[c] = (counts[c] || 0) + 1; });
-  const checked = A.beats.filter(b => b.confirmed).length;
-  box.insertAdjacentHTML('beforeend', `<p class="empty" style="padding:0">For each goal against, this is the moment the ball got past you. Watch it, then confirm what happened or pick the right reason. <b style="color:var(--ink)">${checked} of ${A.beats.length} checked.</b></p>
-    <div class="empty" style="padding:0">${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<b style="color:var(--ink)">${n}×</b> ${esc(CAUSES[c] || c)}`).join(' · ')}</div>`);
-  A.beats.forEach(b => {
-    const el = document.createElement('div'); el.className = 'beat' + (b.confirmed ? ' ok' : '');
-    const facts = [`${b.secsBefore}s before the goal`, `${b.distBall}m from the ball`, `${b.distGoal}m from your goal`, `boost ${b.boost}`, b.jumped ? 'jumped' : 'on the ground', b.retreating ? 'rotating back' : 'moving up'];
-    el.innerHTML = `<div class="bh"><b>Goal against · ${fmt(b.goalClock)}</b><button class="btn" type="button" data-w>▶ Watch</button></div>
-      <div class="bf">${facts.map(esc).join(' · ')}</div>
-      <label>What happened?</label>
-      <div class="row"><select aria-label="What happened at goal ${b.n}">${Object.entries(CAUSES).map(([k, v]) => `<option value="${k}"${(b.confirmed || b.auto) === k ? ' selected' : ''}>${esc(v)}${k === b.auto ? ' (suggested)' : ''}</option>`).join('')}</select>
-      <button class="btn${b.confirmed ? '' : ' primary'}" type="button" data-c>${b.confirmed ? '✓ Checked' : 'Confirm'}</button></div>`;
-    el.querySelector('[data-w]').onclick = () => { seek(T[b.beatFrame] - 3); stopAt = T[b.beatFrame] + 1.2; setPlaying(true); canvas.focus(); };
-    const sel = el.querySelector('select');
-    const confirm = () => { b.confirmed = sel.value; beatsChanged(); };
-    el.querySelector('[data-c]').onclick = confirm;
-    sel.onchange = confirm;
+  if (!D) return;
+  $('beatCount').textContent = '';
+  // numbers side by side
+  const rows = NUMBERS.filter(([k]) => dataView.all || KEY_NUMBERS.includes(k)).filter(([k]) => D.numbers.some(n => n[k] !== null));
+  const head = D.numbers.map((n, k) => `<th style="color:${n.team === 0 ? 'var(--blue)' : 'var(--orange)'}">${esc(short(n.name))}${k === ME ? ' (you)' : ''}</th>`).join('');
+  box.insertAdjacentHTML('beforeend', `<div class="sect" style="color:var(--ink)">Numbers</div>
+    <div class="tblwrap"><table class="nums"><thead><tr><th></th>${head}</tr></thead><tbody>${rows.map(([k, label, unit]) => `<tr><td>${esc(label)}</td>${D.numbers.map(n => `<td>${esc(fmtNum(n[k], unit))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <button class="btn" type="button" id="numsAll">${dataView.all ? 'Show key numbers' : `Show all ${NUMBERS.length} numbers`}</button>`);
+  $('numsAll').onclick = () => { dataView.all = !dataView.all; renderData(); };
+  // moment log
+  const types = [...new Set(D.moments.map(m => m.type))];
+  const list = D.moments.filter(m => (!dataView.type || m.type === dataView.type) && (dataView.player === '' || String(m.k) === dataView.player || String(m.other) === dataView.player));
+  box.insertAdjacentHTML('beforeend', `<div class="sect" style="color:var(--ink)">Moments <span style="font-family:var(--body);font-size:13px;color:var(--mute)">${list.length} of ${D.moments.length}</span></div>
+    <div class="row"><select id="dType" aria-label="Moment type"><option value="">All types</option>${types.map(ty => `<option value="${ty}"${dataView.type === ty ? ' selected' : ''}>${esc(MOMENT_TYPES[ty] || ty)} (${D.moments.filter(m => m.type === ty).length})</option>`).join('')}</select>
+    <select id="dPlayer" aria-label="Player"><option value="">All players</option>${P.map((p, k) => `<option value="${k}"${dataView.player === String(k) ? ' selected' : ''}>${esc(short(p.name))}</option>`).join('')}</select></div>`);
+  $('dType').onchange = () => { dataView.type = $('dType').value; renderData(); };
+  $('dPlayer').onchange = () => { dataView.player = $('dPlayer').value; renderData(); };
+  list.forEach(m => {
+    const el = document.createElement('button'); el.type = 'button'; el.className = 'mrow';
+    const me = m.me || {}, f = [me.boost !== undefined ? `boost ${me.boost}` : '', me.kmh !== undefined ? `${me.kmh} km/h` : '', me.distBall != null ? `${me.distBall} m from ball` : '', me.jumped ? 'jumped' : '', me.goalSide === false ? 'not goal-side' : '', me.zone || ''].filter(Boolean).join(' · ');
+    const col = m.team === 0 ? 'var(--blue)' : m.team === 1 ? 'var(--orange)' : 'var(--mute)';
+    el.innerHTML = `<span class="tc">${fmt(m.clock)}</span><span><b>${esc(MOMENT_TYPES[m.type] || m.type)}</b> · <span style="color:${col}">${esc(short(m.player || ''))}</span>${m.otherName ? ` <span class="mut">vs ${esc(short(m.otherName))}</span>` : ''}<div class="mut">${esc((m.outcome || '').replace(/\s*-_-\s*/g, ' ').trim())}</div><div class="mut">${esc(f)}</div></span>`;
+    el.onclick = () => { seek(T[m.f] - 4); stopAt = T[m.f] + 2; setPlaying(true); canvas.focus(); };
     box.appendChild(el);
   });
 }
@@ -825,7 +813,7 @@ let beatT = 0;
 function beatsChanged() {
   store.set('replaylab:beats:' + M.id, A.beats.map(b => ({ n: b.n, confirmed: b.confirmed })));
   if (backend.lib) backend.beats[M.id] = A.beats.map(b => Object.assign({}, b));
-  renderBeats(); renderRecent();
+  renderRecent();
   clearTimeout(beatT);
   beatT = setTimeout(async () => {
     if (!backend.lib || !M) return;
@@ -843,7 +831,7 @@ async function syncLibrary() {
   if (!inLib && !curBytes) return;
   setSync('warn', inLib ? 'Updating Career Mode…' : 'Saving replay to Google Drive…');
   try {
-    const payload = { game: A.game, beats: A.beats, fileName: '' };
+    const payload = { game: A.game, beats: A.beats, fileName: '', tables: toTables(M, D, ME, { date: A.game.date, mode: A.game.mode, result: `${A.game.result} ${A.game.goalsFor}-${A.game.goalsAgainst}` }) };
     if (!inLib) payload.b64 = bytesToB64(curBytes);
     const r = await api('replay', 'add', payload);
     if (!inLib) backend.replays.push({ id, date: A.game.date, mode: A.game.mode, opponent: A.game.opponent, result: `${A.game.result} ${A.game.goalsFor}-${A.game.goalsAgainst}`, fileId: r.fileId });

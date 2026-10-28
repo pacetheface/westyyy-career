@@ -10,6 +10,8 @@
  *   Games         one row per game: behind-ball %, thirds, boost, result
  *   BeatMoments   one row per goal against: where West got beat, proposed cause, West's confirmed cause
  *   ReplayTags    one row per tag West makes while reviewing
+ *   GameStats     one row per player per game: every number the data engine computes (columns grow with the engine)
+ *   Moments       one row per moment (kickoff, 50/50, turnover, clear, ball got past, goal, shot, save, demo...) with facts
  *
  * After adding or changing this file: run authorizeReplayLab once from the editor, then
  * Deploy > Manage deployments > Edit > New version.
@@ -92,8 +94,32 @@ function libAdd_(p) {
     const prev = {}; readRows_('BeatMoments', BEAT_HEAD).filter(r => r[0] === g.id).forEach(r => { prev[Number(r[2])] = r[14]; });
     const beats = (p.beats || []).slice(0, 40).map(b => Object.assign({}, b, { confirmed: b.confirmed || prev[Number(b.n)] || '' }));
     replaceRows_(sheet_('BeatMoments', BEAT_HEAD), g.id, beats.map(b => beatRow_(g, b, now)), BEAT_HEAD.length);
+    // full data layer: one row per player per game, one row per moment (columns grow as the engine adds facts)
+    if (p.tables) Object.keys(TABLES).forEach(name => { if (Array.isArray(p.tables[name])) writeObjects_(name, g.id, p.tables[name]); });
   });
   return { fileId, existed };
+}
+
+// Tabs written from the browser's data engine. Columns come from the data, so new facts appear as new columns.
+const TABLES = { GameStats: 50, Moments: 600 };   // max rows per replay
+function writeObjects_(name, id, objs) {
+  objs = objs.slice(0, TABLES[name]);
+  const ss = ss_();
+  let sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); sh.getRange('A:A').setNumberFormat('@'); }
+  let head = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].filter(String) : [];
+  if (!head.length) head = ['Replay ID'];
+  const keys = [];
+  objs.forEach(o => Object.keys(o).forEach(k => { if (k !== 'Replay ID' && keys.indexOf(k) < 0) keys.push(k); }));
+  const missing = keys.filter(k => head.indexOf(k) < 0).map(k => String(k).slice(0, 60));
+  if (missing.length || sh.getLastRow() === 0) {
+    head = head.concat(missing);
+    sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  const clean = v => (v === null || v === undefined) ? '' : (typeof v === 'boolean' || typeof v === 'number') ? v : String(v).slice(0, 200);
+  const rows = objs.map(o => head.map((h, c) => c === 0 ? String(id) : clean(o[h])));
+  replaceRows_(sh, id, rows, head.length);
 }
 
 function libSaveBeats_(id, beats) {
@@ -121,6 +147,7 @@ function libRemove_(id) {
     [['Replays', LIB_HEAD], ['Games', GAME_HEAD], ['BeatMoments', BEAT_HEAD], ['ReplayTags', R_HEAD]].forEach(([name, head]) => {
       const sh = ss_().getSheetByName(name); if (sh) replaceRows_(sh, id, [], head.length);
     });
+    Object.keys(TABLES).forEach(name => { const sh = ss_().getSheetByName(name); if (sh && sh.getLastColumn()) replaceRows_(sh, id, [], sh.getLastColumn()); });
   });
   return true;
 }

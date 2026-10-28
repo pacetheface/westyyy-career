@@ -25,6 +25,11 @@ function packRB(fr) {
   return [Math.round(L.x), Math.round(L.y), Math.round(L.z), r1000(q.x), r1000(q.y), r1000(q.z), r1000(q.w)];
 }
 
+function packVel(fr) {
+  const v = fr && fr.Data && fr.Data.rigid_body && fr.Data.rigid_body.linear_velocity;
+  return v ? [Math.round(v.x), Math.round(v.y), Math.round(v.z)] : 0;
+}
+
 export function convert(d) {
   const H = Object.fromEntries(d.meta.all_headers || []);
   const md = d.frame_data.metadata_frames;
@@ -54,12 +59,23 @@ export function convert(d) {
       track: fr.map(packRB),
       boost: fr.map(f => f && f.Data ? Math.round(f.Data.boost_amount * 100 / 255) : 0),
       boosting: fr.map(f => f && f.Data && f.Data.boost_active ? 1 : 0),
+      vel: fr.map(packVel),
       // 1 = jump, 2 = double jump, 4 = dodge (flip) active on that frame
       act: fr.map(f => { const x = f && f.Data; return x ? (x.jump_active ? 1 : 0) | (x.double_jump_active ? 2 : 0) | (x.dodge_active ? 4 : 0) : 0; }),
     };
   }).sort((a, b) => a.team - b.team || a.name.localeCompare(b.name));
 
   const ball = d.frame_data.ball_data.frames.map(packRB);
+  const ballVel = d.frame_data.ball_data.frames.map(packVel);
+
+  // raw events the moment engine builds on
+  const touches = (d.touch_events || []).map(e => ({ f: e.frame, team: e.team_is_team_0 ? 0 : 1, dodge: !!e.dodge_contact }));
+  const padSize = Object.fromEntries((d.boost_pads || []).map(p => [p.pad_id, p.size === 'Big']));
+  const pickups = (d.boost_pad_events || []).filter(e => e.kind && e.kind.PickedUp && e.player)
+    .map(e => ({ f: e.frame, key: idKey(e.player), big: !!padSize[e.pad_id] }));
+  const demos = (d.demolish_infos || []).map(e => ({
+    f: e.frame, attacker: e.attacker ? idKey(e.attacker) : null, victim: e.victim ? idKey(e.victim) : null }));
+  const resets = (d.dodge_refreshed_events || []).map(e => ({ f: e.frame, key: idKey(e.player) }));
 
   // boost pads: position plus every pickup / respawn, so pads disappear like in the game
   const pads = (d.boost_pads || []).map(p => ({ id: p.pad_id, big: p.size === 'Big', x: p.position.x, y: p.position.y, ev: [] }));
@@ -93,6 +109,7 @@ export function convert(d) {
   return {
     id: H.Id || H.MatchGUID || String(H.Date || Date.now()),
     meta: { TeamSize: H.TeamSize || players.length / 2, Team0Score: s0, Team1Score: s1, MapName: H.MapName, Date: H.Date, MatchType: H.MatchType },
-    t, clock, ball, players, pads, moments: clean, score,
+    t, clock, ball, ballVel, players, pads, moments: clean, score,
+    touches, pickups, demos, resets,
   };
 }
