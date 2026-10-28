@@ -32,7 +32,9 @@ function doGet(e) {
   return json_({ ok: true, app: 'Westyyy Career Mode API' });
 }
 
-const ACTIONS = { getAll, saveCheckin, saveStream, coachLogin, saveFocus, saveNote, saveSkills, requestRefresh };
+const ACTIONS = { getAll, saveCheckin, saveStream, coachLogin, saveFocus, saveNote, saveSkills, requestRefresh,
+  // Replay Lab (functions live in Replay.gs; called lazily so file order doesn't matter)
+  getReplayReviews: (...a) => getReplayReviews(...a), saveReplayReview: (...a) => saveReplayReview(...a) };
 
 function doPost(e) {
   let body;
