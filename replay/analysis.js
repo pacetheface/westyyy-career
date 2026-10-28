@@ -103,3 +103,39 @@ export function analyze(M, meIdx = findPlayer(M)) {
   game.beats = beats.length;
   return { game, beats };
 }
+
+// How West's team beat the defender on each goal they scored (the opponent's beat moment, told West's way).
+export const WIN_HOW = {
+  save:       'He dove for a last-ditch save and missed',
+  dove_empty: 'He challenged with no boost and you went past him',
+  challenge:  'You beat his challenge',
+  ground:     'You beat him 1v1 on the ground',
+  retreat:    'You caught him while he was rotating back',
+  empty:      'He was out of boost and you made him pay',
+  position:   'You caught him out of position',
+  other:      'You found a way through',
+};
+
+// Everything West did well: goals (with how he beat the defender), saves, shots, and shots he kept out.
+export function positives(M, meIdx = findPlayer(M)) {
+  const me = M.players[meIdx];
+  const out = [];
+  // for each goal by West's team, use the opponent who got beat last
+  const oppBeats = M.players.map((p, k) => p.team !== me.team ? analyze(M, k).beats : []).flat();
+  M.moments.forEach(m => {
+    if (m.type === 'goal' && m.team === me.team) {
+      const b = oppBeats.filter(x => x.goalFrame === m.f).sort((x, y) => y.beatFrame - x.beatFrame)[0];
+      out.push({ kind: 'goal', f: m.f, at: b ? b.beatFrame : m.f, mine: m.player === me.name, player: m.player, kmh: m.kmh || 0,
+        how: b ? WIN_HOW[b.auto] : '', detail: b ? `${b.secsBefore}s before the goal · he had ${b.boost} boost and was ${b.distBall}m from the ball` : '' });
+    } else if (m.type === 'save' && m.team === me.team) {
+      out.push({ kind: 'save', f: m.f, at: m.f, mine: m.player === me.name, player: m.player });
+    } else if (m.type === 'shot' && m.team === me.team) {
+      out.push({ kind: 'shot', f: m.f, at: m.f, mine: m.player === me.name, player: m.player, kmh: m.kmh || 0 });
+    } else if (m.type === 'shot' && m.team !== me.team) {
+      // their shot that didn't go in (skip it when it's the same moment as one of our saves)
+      const saved = M.moments.some(s => s.type === 'save' && s.team === me.team && Math.abs(M.t[s.f] - M.t[m.f]) < 1.5);
+      if (!saved) out.push({ kind: 'stopped', f: m.f, at: m.f, player: m.player });
+    }
+  });
+  return out;
+}

@@ -79,11 +79,15 @@ export function convert(d) {
   });
   (d.player_stat_events || []).forEach(e => {
     const type = e.kind === 'Shot' ? 'shot' : e.kind === 'Save' ? 'save' : null; if (!type) return;
-    moments.push({ f: e.frame, type, player: pname(e.player), team: e.is_team_0 ? 0 : 1 });
+    const m = { f: e.frame, type, player: pname(e.player), team: e.is_team_0 ? 0 : 1 };
+    if (e.shot && e.shot.ball_speed) m.kmh = Math.round(e.shot.ball_speed * 0.036);   // uu/s (cm/s) -> km/h
+    moments.push(m);
   });
   moments.sort((a, b) => a.f - b.f);
-  // a shot that becomes a goal within 3 s is shown as the goal only
-  const clean = moments.filter(m => !(m.type === 'shot' && moments.some(g => g.type === 'goal' && g.player === m.player && t[g.f] - t[m.f] >= 0 && t[g.f] - t[m.f] < 3)));
+  // a shot that becomes a goal within 3 s is shown as the goal only (the goal keeps the shot speed)
+  const scoring = (m, g) => g.type === 'goal' && g.player === m.player && t[g.f] - t[m.f] >= 0 && t[g.f] - t[m.f] < 3;
+  moments.forEach(m => { if (m.type === 'shot' && m.kmh) { const g = moments.find(x => scoring(m, x)); if (g && !g.kmh) g.kmh = m.kmh; } });
+  const clean = moments.filter(m => !(m.type === 'shot' && moments.some(g => scoring(m, g))));
 
   const s0 = H.Team0Score || 0, s1 = H.Team1Score || 0;
   return {
