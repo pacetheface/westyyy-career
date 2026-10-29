@@ -34,7 +34,15 @@ export function scopeIds(data, recent) {
   return new Set(g.slice(-n).map(x => x.id));
 }
 
-const clipOf = m => ({ id: m['Replay ID'], t: Number(m['Replay time (s)']) || 0, label: `${m.Type} · ${m['Game clock']} · ${String(m['Match date'] || '').slice(0, 10)}`, facts: factsOf(m) });
+// Google Sheets turns a game clock like "4:16" into a time of day (stored in the Sheet's time zone, Berlin); turn it back.
+const clockOf = v => {
+  const s = String(v ?? '');
+  if (!/^1899-12-3\dT/.test(s)) return s;
+  const d = new Date(s), p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: 'numeric', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+  const g = t => (p.find(x => x.type === t) || {}).value || '0';
+  return `${+g('hour')}:${g('minute')}`;
+};
+const clipOf = m => ({ id: m['Replay ID'], t: Number(m['Replay time (s)']) || 0, label: `${m.Type} · ${clockOf(m['Game clock'])} · ${String(m['Match date'] || '').slice(0, 10)}`, facts: factsOf(m) });
 function factsOf(m) {
   if (m.Type === 'Kickoff approach') return [short(m.Player), m.Spawn, m['Kickoff choice'], m.Outcome && String(m.Outcome).split('·')[1], m['Kickoff goal'] ? `kickoff goal ${String(m['Kickoff goal']).toLowerCase()}` : '', yes(m.Flipped) ? 'flipped in' : ''].filter(Boolean).join(' · ');
   return [short(m.Player), m['Attack started'], m['Attack seconds'] !== undefined ? `${m['Attack seconds']} s` : '', m['Shot distance (m)'] !== undefined ? `shot from ${m['Shot distance (m)']} m` : '', yes(m['Shot in the air']) ? 'in the air' : 'on the ground', yes(m['Defender goal-side']) ? 'defender goal-side' : 'defender not goal-side'].filter(Boolean).join(' · ');
