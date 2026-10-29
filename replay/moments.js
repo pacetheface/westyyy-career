@@ -3,7 +3,7 @@
 // Rules are deliberately simple and written out so they can be checked and improved; bump
 // ENGINE_VERSION whenever a rule changes so stored games can be recalculated.
 
-export const ENGINE_VERSION = 2;   // v2: kickoff goals
+export const ENGINE_VERSION = 3;   // v2: kickoff goals · v3: kickoff approach per player, goal attack facts
 
 const GOAL_Y = 5120, THIRD = 1707, SUPERSONIC = 2200;
 const KMH = 0.036;                         // uu/s (cm/s) -> km/h
@@ -12,7 +12,7 @@ const CHALLENGE_NEAR = 300;                // or: opponent this close to the bal
 const PAST_RANGE = 2500;                   // "ball got past" only counts if the player was in the play
 
 export const MOMENT_TYPES = {
-  goal: 'Goal', shot: 'Shot', save: 'Save', kickoff: 'Kickoff', kickoffgoal: 'Kickoff goal', challenge: '50/50',
+  goal: 'Goal', shot: 'Shot', save: 'Save', kickoff: 'Kickoff', kickoffplayer: 'Kickoff approach', kickoffgoal: 'Kickoff goal', challenge: '50/50',
   turnover: 'Turnover', clear: 'Clear', past: 'Ball got past', demo: 'Demo',
   doublecommit: 'Double commit', reset: 'Flip reset',
 };
@@ -88,6 +88,25 @@ export function buildData(M) {
     const other = nearestOf(1 - first.team, first.f)[0];
     add('kickoff', first.f, first.k, { other, outcome: winner === null ? 'neutral' : gotIt(winner), winner,
       me: facts(first.k, first.f), them: other >= 0 ? facts(other, first.f) : null, ...ballFacts(first.f) });
+    // what each player did on this kickoff: spawn, went for it / fake / hesitated, and what followed
+    const kf = first.f, nextT = touches.find(t => T[t.f] > T[kf] + 0.6 && T[t.f] - T[kf] < 5);
+    P.forEach((p, k) => {
+      const c0 = pos(k, i), ck = pos(k, kf); if (!c0 || !ck) return;
+      const d = dir(p.team), ownGoal = c => Math.hypot(c[0], c[1] + d * GOAL_Y);
+      const ax = Math.abs(c0[0]), kind = ax > 1500 ? 'Diagonal' : ax > 100 ? 'Off-centre' : 'Back-centre';
+      const spawn = kind === 'Back-centre' ? kind : `${kind} ${c0[0] * d > 0 ? 'left' : 'right'}`;   // left/right as the player faces the ball
+      const bk = B[kf] || [0, 0, 0], dBall = Math.hypot(ck[0] - bk[0], ck[1] - bk[1]) / 100, advanced = (ownGoal(ck) - ownGoal(c0)) / 100;
+      let closest = 1e9; for (let j = i; j <= kf; j++) { const c = pos(k, j); if (c) closest = Math.min(closest, Math.hypot(c[0], c[1]) / 100); }
+      const choice = dBall <= 4 ? 'Went for it' : (advanced < 5 || closest > 25) ? 'Fake' : 'Hesitated';
+      let flip = false; for (let j = frameAt(T[kf] - 0.6); j <= kf; j++) if (p.act && p.act[j] & 4) flip = true;
+      const a1 = frameAt(T[kf] + 1), a3 = frameAt(T[kf] + 3), c3 = pos(k, a3), b1 = B[a1], b3 = B[a3];
+      let gain = 0; for (let j = kf; j <= a3; j++) gain = Math.max(gain, p.boost[j] - p.boost[kf]);
+      const possession = nextT ? (nextT.team === p.team ? 'His team' : 'Other team') : 'Nobody';
+      add('kickoffplayer', kf, k, { team: p.team, spawn, choice, possession, koGoal: '', flip, boostUsed: p.boost[i] - p.boost[kf],
+        ballInHisHalf1s: b1 ? b1[1] * d < 0 : null, goalSide3s: c3 && b3 ? (c3[1] - b3[1]) * d < 0 : null, gotBoost3s: gain >= 12,
+        outcome: `${choice} · ${possession === 'His team' ? 'his team got the ball' : possession === 'Other team' ? 'other team got the ball' : 'nobody got it'}`,
+        me: facts(k, kf), ...ballFacts(kf) });
+    });
   }
 
   // ---- 50/50s and turnovers from the touch sequence ----
@@ -191,11 +210,35 @@ export function buildData(M) {
     between.forEach(t => { if (t.team !== g.team) { defTouches++; run++; maxRun = Math.max(maxRun, run); } else run = 0; });
     if (maxRun >= 2) return;
     const k = nameIdx[g.player] ?? -1, [def] = nearestOf(1 - g.team, g.f);
-    add('kickoffgoal', g.f, k, { team: g.team, other: def, secsAfterKickoff: r1(secs), defenderTouches: defTouches,
+    add('kickoffgoal', g.f, k, { team: g.team, other: def, koF: ko, goalF: g.f, secsAfterKickoff: r1(secs), defenderTouches: defTouches,
       outcome: `scored ${r1(secs)}s after the kickoff${defTouches ? `, ${defTouches} defending touch` : ''}`, me: k >= 0 ? facts(k, g.f) : null, them: def >= 0 ? facts(def, g.f) : null, ...ballFacts(g.f) });
   });
   (M.demos || []).forEach(d => { const k = keyIdx[d.attacker] ?? -1, o = keyIdx[d.victim] ?? -1; add('demo', d.f, k, { other: o, outcome: o >= 0 ? `${P[o].name} demolished` : 'demolition', me: k >= 0 ? facts(k, d.f) : null }); });
   (M.resets || []).forEach(r => { const k = keyIdx[r.key] ?? -1; if (k >= 0) add('reset', r.f, k, { outcome: 'flip reset', me: facts(k, r.f), ...ballFacts(r.f) }); });
+
+  // kickoff approach rows: did this kickoff end in a kickoff goal for or against the player's team?
+  const koGoals = moments.filter(m => m.type === 'kickoffgoal');
+  moments.filter(m => m.type === 'kickoffplayer').forEach(m => { const g = koGoals.find(x => x.koF === m.f); if (g) m.koGoal = g.team === m.team ? 'For' : 'Against'; });
+
+  // goals: how the attack started, how long it took, the shot, and where the defender was
+  const saveMs = M.moments.filter(m => m.type === 'save'), shotMs = M.moments.filter(m => m.type === 'shot' || m.type === 'goal');
+  moments.filter(m => m.type === 'goal').forEach(m => {
+    const S = m.team, d = dir(S), before = touches.filter(t => t.f <= m.f);
+    const lastD = [...before].reverse().find(t => t.team !== S), shot = [...before].reverse().find(t => t.team === S);
+    const koStart = koStarts.filter(f => f <= m.f).pop();
+    const start = before.find(t => t.team === S && (!lastD || t.f > lastD.f) && (koStart === undefined || t.f >= koStart));
+    let attack;
+    if (koGoals.some(g => g.goalF === m.f)) attack = 'Kickoff';
+    else if (shot && lastD && lastD.f > shot.f) attack = 'Defender touched it in';
+    else if (!lastD || (koStart !== undefined && lastD.f < koStart)) attack = 'Kickoff';
+    else if (saveMs.some(x => x.team !== S && Math.abs(x.f - lastD.f) < 15) || shotMs.some(x => x.team === S && x.f < lastD.f && T[lastD.f] - T[x.f] < 3)) attack = 'Rebound off a save';
+    else if (start && T[start.f] - T[lastD.f] <= CHALLENGE_GAP) attack = '50/50 won';
+    else { const bb = B[lastD.f], z = bb ? bb[1] * d : 0; attack = z > THIRD ? 'Won it in attacking third' : z < -THIRD ? 'Won it in own third' : 'Won it in midfield'; }
+    const sf = shot ? shot.f : m.f, sb = B[sf], car = m.k >= 0 ? pos(m.k, sf) : null, [def] = nearestOf(1 - S, sf), df = def >= 0 ? facts(def, sf) : null;
+    Object.assign(m, { attack, attackSecs: start ? r1(T[m.f] - T[start.f]) : null, attackTouches: start ? before.filter(t => t.team === S && t.f >= start.f).length : 0,
+      shotDist: sb ? Math.round(Math.hypot(sb[0], sb[1] - d * GOAL_Y) / 100) : null, shotAir: !!((sb && sb[2] > 300) || (car && airborne(car))),
+      defGoalSide: df ? df.goalSide : null, defDistGoal: df ? df.distGoal : null, defBoost: df ? df.boost : null });
+  });
 
   moments.sort((a, b) => a.f - b.f);
 
@@ -253,20 +296,24 @@ export function toTables(M, D, westIdx, info) {
   const west = M.players[westIdx];
   const fc = s => (s == null ? '' : Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'));
   const GameStats = D.numbers.map((n, k) => {
-    const o = { 'Match date': info.date, Mode: info.mode, 'Result (West)': info.result, Player: n.name, Team: teamLabel(n.team), 'Is West': k === westIdx, 'Same team as West': n.team === west.team };
+    const o = { 'Match date': info.date, 'Match time': M.meta.Date || '', Mode: info.mode, 'Result (West)': info.result, Player: n.name, Team: teamLabel(n.team), 'Is West': k === westIdx, 'Same team as West': n.team === west.team };
     NUMBERS.forEach(([key, label, unit]) => { o[label + unitLabel(unit)] = n[key] === null ? '' : n[key]; });
     o['Engine version'] = D.version;
     return o;
   });
   const f = (x, k) => (x && x[k] !== undefined && x[k] !== null ? x[k] : '');
   const Moments = D.moments.map(m => ({
-    'Match date': info.date, Type: MOMENT_TYPES[m.type] || m.type, 'Game clock': fc(m.clock), 'Replay time (s)': Math.round(M.t[m.f] * 10) / 10,
+    'Match date': info.date, 'Match time': M.meta.Date || '', Type: MOMENT_TYPES[m.type] || m.type, 'Game clock': fc(m.clock), 'Replay time (s)': Math.round(M.t[m.f] * 10) / 10,
     Player: m.player, Team: m.team === 0 || m.team === 1 ? teamLabel(m.team) : '', 'Is West': m.k === westIdx, 'West team': m.team === west.team,
     Outcome: m.outcome || '', 'Other player': m.otherName || '', Zone: f(m.me, 'zone') || m.zone || '',
     Boost: f(m.me, 'boost'), 'Speed (km/h)': f(m.me, 'kmh'), 'Distance to ball (m)': f(m.me, 'distBall'), 'Distance to own goal (m)': f(m.me, 'distGoal'),
     Jumped: f(m.me, 'jumped'), 'In the air': f(m.me, 'air'), 'Goal-side': f(m.me, 'goalSide'),
     'Other boost': f(m.them, 'boost'), 'Other speed (km/h)': f(m.them, 'kmh'), 'Other distance to ball (m)': f(m.them, 'distBall'), 'Other goal-side': f(m.them, 'goalSide'),
     'Seconds after kickoff': m.secsAfterKickoff ?? '', 'Defending touches': m.defenderTouches ?? '',
+    Spawn: m.spawn ?? '', 'Kickoff choice': m.choice ?? '', 'Possession after': m.possession ?? '', 'Kickoff goal': m.koGoal ?? '', Flipped: m.flip ?? '',
+    'Boost used': m.boostUsed ?? '', 'Ball in his half after 1s': m.ballInHisHalf1s ?? '', 'Goal-side after 3s': m.goalSide3s ?? '', 'Got boost within 3s': m.gotBoost3s ?? '',
+    'Attack started': m.attack ?? '', 'Attack seconds': m.attackSecs ?? '', 'Attack touches': m.attack ? m.attackTouches : '', 'Shot distance (m)': m.shotDist ?? '', 'Shot in the air': m.attack ? m.shotAir : '',
+    'Defender goal-side': m.defGoalSide ?? '', 'Defender distance to goal (m)': m.defDistGoal ?? '', 'Defender boost': m.defBoost ?? '',
     'Ball speed (km/h)': m.ballKmh ?? '', 'Ball height (m)': m.ballHeight ?? '', 'Shot speed (km/h)': m.kmh ?? '', 'Seconds to goal': m.secsToGoal ?? '',
     'Engine version': D.version,
   }));

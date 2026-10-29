@@ -34,7 +34,7 @@ function authorizeReplayLab() {
 
 // ---------- entry point: Code.gs routes action "replay" here ----------
 function replayAction(name, ...args) {
-  const fns = { library: libGet_, add: libAdd_, file: libFile_, saveBeats: libSaveBeats_, remove: libRemove_ };
+  const fns = { library: libGet_, add: libAdd_, file: libFile_, saveBeats: libSaveBeats_, remove: libRemove_, trends: libTrends_ };
   const fn = fns[name];
   if (!fn) throw new Error('Unknown replay action');
   return fn.apply(null, args);
@@ -151,6 +151,27 @@ function libRemove_(id) {
     Object.keys(TABLES).forEach(name => { const sh = ss_().getSheetByName(name); if (sh && sh.getLastColumn()) replaceRows_(sh, id, [], sh.getLastColumn()); });
   });
   return true;
+}
+
+// ---------- Trends page: everything it needs in one call ----------
+const TREND_TYPES = ['Kickoff approach', 'Goal'];
+const TREND_COLS = ['Replay ID', 'Match date', 'Match time', 'Type', 'Game clock', 'Replay time (s)', 'Player', 'Team', 'Is West', 'West team', 'Outcome',
+  'Other player', 'Spawn', 'Kickoff choice', 'Possession after', 'Kickoff goal', 'Flipped', 'Boost used', 'Ball in his half after 1s', 'Goal-side after 3s',
+  'Got boost within 3s', 'Speed (km/h)', 'Boost', 'Attack started', 'Attack seconds', 'Attack touches', 'Shot distance (m)', 'Shot in the air',
+  'Defender goal-side', 'Defender distance to goal (m)', 'Defender boost', 'Shot speed (km/h)', 'Engine version'];
+function libTrends_() {
+  const moments = readObjects_('Moments').filter(o => TREND_TYPES.indexOf(o.Type) >= 0).map(o => { const x = {}; TREND_COLS.forEach(k => { if (o[k] !== undefined && o[k] !== '') x[k] = o[k]; }); return x; });
+  const stats = getStats_();
+  return { focus: prop_('FOCUS', null), games: readObjects_('Games'), gameStats: readObjects_('GameStats'), moments, mmr: stats ? stats.hist : {} };
+}
+function readObjects_(name) {
+  const sh = ss_().getSheetByName(name);
+  if (!sh || sh.getLastRow() < 2 || !sh.getLastColumn()) return [];
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues(), head = v[0];
+  return v.slice(1).filter(r => r[0] !== '' && r[0] != null).map(r => {
+    const o = {}; head.forEach((h, i) => { if (h) o[h] = r[i] instanceof Date ? (h === 'Match date' ? fmtDate_(r[i]) : r[i].toISOString()) : r[i]; });
+    o['Replay ID'] = String(o['Replay ID']); return o;
+  });
 }
 
 // ---------- helpers ----------
