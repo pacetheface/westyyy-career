@@ -529,7 +529,7 @@ function label(text, col) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
   sp.scale.set(320, 60, 1); sp.renderOrder = 10; return sp;
 }
-const CAR_TRAIL = 45, SUPERSONIC = 2200, LEAD = 5;   // LEAD: seconds shown before every moment
+const TRAIL_SECS = 10, CAR_TRAIL = 720, SUPERSONIC = 2200, LEAD = 5;   // LEAD: seconds shown before every moment
 function makeCar(team, name) {
   const g = new THREE.Group(), col = TEAMCOL[team];
   const body = new THREE.MeshStandardMaterial({ color: col, roughness: .4, metalness: .3 });
@@ -553,12 +553,13 @@ function makeCar(team, name) {
   reset.rotation.x = -Math.PI / 2; reset.position.set(10, -22, 0); reset.visible = false; g.add(reset);
   const holder = new THREE.Group(); holder.add(g);
   const lb = label(short(name), team ? '#ffc79b' : '#a9d8ff');
-  // trail: where the car came from over the last ~1.5 s
+  // trail: where the car came from over the last TRAIL_SECS seconds, fading out with age
   const tg = new THREE.BufferGeometry();
   tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CAR_TRAIL * 3), 3));
   const tc = new Float32Array(CAR_TRAIL * 4), rgb = new THREE.Color(col);
-  for (let k = 0; k < CAR_TRAIL; k++) tc.set([rgb.r, rgb.g, rgb.b, (k / CAR_TRAIL) * .85], k * 4);
+  for (let k = 0; k < CAR_TRAIL; k++) tc.set([rgb.r, rgb.g, rgb.b, 0], k * 4);
   tg.setAttribute('color', new THREE.BufferAttribute(tc, 4));
+  tg.setDrawRange(0, 0);
   const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false }));
   trail.frustumCulled = false;
   return { holder, flame, lb, sonic, reset, trail, tg };
@@ -760,13 +761,17 @@ function render(now) {
       c.sonic.visible = sp >= SUPERSONIC; pl._sonic = c.sonic.visible;
       const rt = resetTimes[k] || [], since = rt.reduce((m, x) => (x <= t && t - x < m ? t - x : m), 9);
       c.reset.visible = since < 1.5; if (c.reset.visible) c.reset.material.opacity = .35 + .65 * Math.abs(Math.sin(since * 12));
-      const arr = c.tg.attributes.position.array; let last = null;
-      for (let j = 0; j < CAR_TRAIL; j++) {
-        const e = pl.track[Math.max(0, i - (CAR_TRAIL - 1 - j))];
-        if (e && (!last || Math.hypot(e[0] - last[0], e[1] - last[1], e[2] - last[2]) < 600)) last = e;
-        if (j === CAR_TRAIL - 1 || !last) arr.set([posC[k].x, posC[k].y, posC[k].z], j * 3); else arr.set([last[0], last[2], last[1]], j * 3);
+      // walk back from now; stop at TRAIL_SECS or where the car jumped (respawn after a demo or goal)
+      const arr = c.tg.attributes.position.array, col = c.tg.attributes.color.array, T = M.t;
+      let n = 0, prev = pl.track[i];
+      arr.set([posC[k].x, posC[k].y, posC[k].z], 0); col[3] = .9; n = 1;
+      for (let f = i - 1; f >= 0 && n < CAR_TRAIL; f--) {
+        const e = pl.track[f], age = t - T[f];
+        if (!e || age > TRAIL_SECS || (prev && Math.hypot(e[0] - prev[0], e[1] - prev[1], e[2] - prev[2]) > 600)) break;
+        arr.set([e[0], e[2], e[1]], n * 3); col[n * 4 + 3] = .9 * (1 - age / TRAIL_SECS); prev = e; n++;
       }
-      c.tg.attributes.position.needsUpdate = true;
+      c.tg.setDrawRange(0, n);
+      c.tg.attributes.position.needsUpdate = true; c.tg.attributes.color.needsUpdate = true;
     } else pl._sonic = false;
   });
   let bcState = null;
