@@ -23,6 +23,51 @@ html,body{height:100%;margin:0}
 body{background:var(--night);color:var(--ink);font-family:var(--body);font-size:14px;overflow:hidden}
 button{font:inherit;color:inherit}
 .app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 330px;grid-template-rows:auto minmax(0,1fr) auto}
+.views{display:flex;gap:4px;padding:3px;background:var(--night);border-radius:12px}
+.views button{background:none;border:0;color:var(--mute);font-weight:700;font-size:13px;padding:6px 12px;border-radius:9px;cursor:pointer}
+.views button[aria-selected="true"]{background:var(--deck2);color:var(--ink)}
+.views button:focus-visible{outline:3px solid var(--gold);outline-offset:1px}
+.app.trends .stage,.app.trends aside,.app.trends .transport{display:none}
+#trendsView{grid-column:1/-1;grid-row:2/4;overflow:auto;padding:18px max(16px,env(safe-area-inset-left,0px)) 40px;padding-right:max(16px,env(safe-area-inset-right,0px))}
+#trendsView>*{max-width:1100px;margin-left:auto;margin-right:auto}
+.tr-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.tr-head h1{font-family:var(--display);font-weight:400;font-size:30px;margin:0}
+.tr-filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.tr-filters label{font-size:12px;color:var(--mute);display:flex;flex-direction:column;gap:3px}
+.tr-filters select{background:var(--night);color:var(--ink);border:2px solid var(--line);border-radius:9px;padding:6px 8px;font:600 13px var(--body)}
+.seg{display:flex;gap:3px;padding:3px;background:var(--night);border-radius:11px}
+.seg button{background:none;border:0;color:var(--mute);font-weight:700;font-size:13px;padding:6px 11px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--deck2);color:var(--ink)}.seg button:disabled{opacity:.4;cursor:default}
+.lede{color:var(--mute);margin:4px 0 10px;line-height:1.45}
+.gate{background:var(--deck2);border:2px dashed var(--line);border-radius:12px;padding:10px 14px;color:var(--mute);margin-bottom:14px}
+.rep{background:var(--deck);border:2px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:16px}
+.rep h2{font-family:var(--display);font-weight:400;font-size:22px;margin:0}
+.rep h3{font-size:14px;margin:16px 0 4px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:8px 0 14px}
+.kpi-btn,.kpi>div{width:100%;text-align:left;background:var(--deck2);border:2px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;cursor:pointer}
+.kpi>div{cursor:default}.kpi-btn:hover{border-color:var(--gold)}
+.kpi .kl{font-size:12px;color:var(--mute)}.kpi b{font-family:var(--display);font-weight:400;font-size:26px}.kpi .kr{font-size:12px;color:var(--mute)}
+.rt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.rt th,.rt td{padding:5px 6px;border-bottom:1px solid rgba(44,54,128,.6);text-align:left;vertical-align:top}
+.rt thead th{font-size:12px;color:var(--mute);font-weight:700}
+.rt tbody th{font-weight:600;font-size:13px;white-space:nowrap}
+.rt tr.tot th,.rt tr.tot td{border-top:2px solid var(--line)}
+.rt tr.grp th{padding-top:14px;color:var(--gold);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.rt td.z{color:var(--mute)}
+.tc-btn{background:var(--deck2);border:1px solid var(--line);border-radius:9px;padding:5px 9px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;min-width:88px;text-align:left}
+.tc-btn:hover,.tc-btn:focus-visible{border-color:var(--gold);outline:none}
+.tc-btn b{font-size:16px}.sub{font-size:11.5px;color:var(--mute);font-weight:500}
+.pos{color:var(--mint);font-style:normal}.neg{color:var(--pink);font-style:normal}
+.note{font-size:12px;color:var(--mute);margin:6px 0 0}
+.chg{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.chg li{background:var(--deck2);border-radius:10px;padding:8px 12px}
+.btn.sm{padding:3px 8px;font-size:12px;margin-left:6px}
+.tl-svg{width:100%;height:auto;display:block;margin-top:4px}
+.tl-svg .grid{stroke:var(--line);stroke-width:1}.tl-svg .ax{fill:var(--mute);font-size:10px;font-family:var(--body)}
+.tl-svg .roll{fill:none;stroke-width:2.5;opacity:.9}.tl-svg .mmr{fill:none;stroke:var(--mute);stroke-width:1.5;stroke-dasharray:4 3}.tl-svg .mmrt{fill:var(--mute)}
+.clipbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--deck2);border:2px solid var(--gold);border-radius:12px;padding:8px 10px}
+.cb-txt{display:flex;flex-direction:column;min-width:0}.cb-txt b{font-size:13px}.cb-txt span{font-size:12px;color:var(--mute)}
+.cb-n{font-family:var(--mono);font-size:12px;color:var(--mute);min-width:56px;text-align:center}
 header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:2px solid var(--line);background:var(--deck);flex-wrap:wrap}
 .back{color:var(--mute);text-decoration:none;font-weight:600;font-size:13px}
 .back:hover{color:var(--ink)}
@@ -201,10 +246,11 @@ dialog .row{justify-content:flex-end;margin-top:14px}
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
   <header>
     <a class="back" href="../">← Career Mode</a>
     <div class="brand">Replay <span>Lab</span></div>
+    <div class="views" role="tablist" aria-label="Replay Lab sections"><button type="button" role="tab" id="vReplays" aria-selected="true">Replays</button><button type="button" role="tab" id="vTrends" aria-selected="false">Trends</button></div>
     <div class="meta" id="meta"></div>
     <div class="sync" id="sync" hidden><i></i><span id="syncTxt"></span></div>
     <button class="btn" id="newReplay" type="button" hidden>Open another replay</button>
@@ -268,7 +314,13 @@ dialog .row{justify-content:flex-end;margin-top:14px}
     <div class="pane" id="paneTags" hidden><div id="tags"></div></div>
   </aside>
 
+  <div id="trendsView" hidden></div>
+
   <div class="transport">
+    <div class="clipbar" id="clipBar" hidden>
+      <div class="cb-txt"><b id="cbTitle"></b><span id="cbFacts"></span></div>
+      <div class="row"><button class="btn" type="button" id="cbPrev">◀ Prev</button><span class="cb-n" id="cbN"></span><button class="btn" type="button" id="cbNext">Next ▶</button><button class="btn" type="button" id="cbReplay">↺ Again</button><button class="btn primary" type="button" id="cbBack">Back to Trends</button></div>
+    </div>
     <div class="tl"><div class="track"></div><div class="fill" id="fill"></div><div id="markers"></div>
       <input type="range" id="scrub" min="0" max="1" step="0.01" value="0" aria-label="Replay timeline" disabled></div>
     <div class="row">
@@ -321,6 +373,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { parseReplay, initParser } from './core.js';
 import { analyze, CAUSES, findPlayer } from './analysis.js';
 import { buildData, toTables, MOMENT_TYPES, NUMBERS } from './moments.js';
+import { renderTrends } from './trends.js';
 
 const $ = id => document.getElementById(id);
 const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
@@ -1122,6 +1175,64 @@ $('newReplay').onclick = () => { setPlaying(false); $('start').hidden = false; $
 $('copyPath').onclick = async () => { const p = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos'; try { await navigator.clipboard.writeText(p); toast('Folder path copied'); } catch (e) { toast('Copy failed. Select the path and copy it'); } };
 $('pathTxt').textContent = '%USERPROFILE%\\Documents\\My Games\\Rocket League\\TAGame\\Demos';
 
+// ================= Trends + clip player =================
+let trendsData = null, trendsState = store.get('replaylab:trends', { mode: '1v1', recent: 'last10', view: 'all' });
+const clipLists = {}; let clipSeq = 0, playlist = null;
+const trendActions = {
+  reset() { for (const k in clipLists) delete clipLists[k]; clipSeq = 0; },
+  register(clips, title) { const k = 'c' + (++clipSeq); clipLists[k] = { clips, title }; return k; },
+  play(k) { const l = clipLists[k]; if (l && l.clips.length) startPlaylist(l.title, l.clips); },
+  set(patch) { Object.assign(trendsState, patch); store.set('replaylab:trends', trendsState); drawTrends(); },
+};
+function drawTrends() { if (trendsData) renderTrends($('trendsView'), trendsData, trendsState, trendActions); }
+async function showTrends() {
+  setView('trends');
+  if (!backend.lib) { $('trendsView').innerHTML = '<p class="empty">Trends need the Career Mode connection. Enter the family code, then try again.</p>'; return; }
+  $('trendsView').innerHTML = '<p class="empty">Loading trends from Career Mode…</p>';
+  try { trendsData = await api('replay', 'trends'); drawTrends(); }
+  catch (e) { $('trendsView').innerHTML = `<p class="empty err">Couldn't load trends (${esc(e.message)}).${/Unknown replay action/.test(e.message) ? ' The Apps Script needs the latest Replay.gs.' : ''}</p>`; }
+}
+function setView(v) {
+  $('app').classList.toggle('trends', v === 'trends');
+  $('trendsView').hidden = v !== 'trends';
+  $('vReplays').setAttribute('aria-selected', v !== 'trends'); $('vTrends').setAttribute('aria-selected', v === 'trends');
+  if (v === 'trends') setPlaying(false); else resize();
+}
+$('vReplays').onclick = () => setView('replays');
+$('vTrends').onclick = () => showTrends();
+
+// clip player: loads each clip's replay (memory, this PC, or Drive), starts LEAD seconds before the moment
+const matchCache = new Map();
+async function loadMatchById(id) {
+  if (M && M.id === id) return true;
+  let match = matchCache.get(id);
+  if (!match) {
+    let bytes = null;
+    try { const f = await DB.getFile(id); if (f) bytes = new Uint8Array(f.bytes); } catch (e) {}
+    if (!bytes) { const r = await api('replay', 'file', id); bytes = b64ToBytes(r.b64); }
+    match = await parseReplay(bytes);
+    matchCache.set(id, match); if (matchCache.size > 4) matchCache.delete(matchCache.keys().next().value);
+  }
+  boot(match);
+  return true;
+}
+function startPlaylist(title, clips) { playlist = { title, clips, i: 0 }; setView('replays'); $('clipBar').hidden = false; playClip(0); }
+async function playClip(i) {
+  if (!playlist) return;
+  playlist.i = Math.max(0, Math.min(playlist.clips.length - 1, i));
+  const c = playlist.clips[playlist.i];
+  $('cbTitle').textContent = playlist.title; $('cbFacts').textContent = `${c.label} — ${c.facts}`;
+  $('cbN').textContent = `${playlist.i + 1} of ${playlist.clips.length}`;
+  $('cbPrev').disabled = playlist.i === 0; $('cbNext').disabled = playlist.i === playlist.clips.length - 1;
+  if (!M || M.id !== c.id) { setSync('warn', 'Loading clip…'); try { await loadMatchById(c.id); setSync('ok', 'Connected to Career Mode'); } catch (e) { setSync('bad', 'Clip not loaded: ' + e.message); return; } }
+  $('resumeBtn').hidden = true;
+  seek(c.t - LEAD); stopAt = c.t + 2; setPlaying(true);
+}
+$('cbPrev').onclick = () => playClip(playlist.i - 1);
+$('cbNext').onclick = () => playClip(playlist.i + 1);
+$('cbReplay').onclick = () => playClip(playlist.i);
+$('cbBack').onclick = () => { playlist = null; $('clipBar').hidden = true; showTrends(); };
+
 // ================= start =================
 resize();
 requestAnimationFrame(render);
@@ -1134,7 +1245,7 @@ initParser().then(async () => {
 connect();
 if (!FAMILY) setTimeout(() => { if (!$('gate').open) $('gate').showModal(); }, 400);
 // test hook: lets automated tests open a replay without a file picker
-window.__replayLab = { openFile, get state() { return { M, t, review, backend }; } };
+window.__replayLab = { openFile, showTrends, get state() { return { M, t, review, backend, playlist }; } };
 </script>
 </body>
 </html>
