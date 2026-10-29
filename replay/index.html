@@ -386,6 +386,7 @@ let toastT; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.
 // ================= backend (same Apps Script as Career Mode) =================
 const API_URL = 'https://script.google.com/macros/s/AKfycbz8Bgoqpp9JFoaRAn_3ZkCS5ncOvW7BxsVJ_Ql6g6MIE0lRTCiiQfqRKiFW3Al4RQ3P9Q/exec';
 let FAMILY = store.get('familyCode', null);
+let connecting = null, trendsAfterGate = false;
 let backend = { ok: false, lib: false, reason: 'not-checked', focus: null, reviews: [], replays: [], games: [], beats: {} };
 async function api(action, ...args) {
   if (!FAMILY) throw Object.assign(new Error('No family code'), { code: 'family' });
@@ -419,8 +420,8 @@ function renderCoachFocus() { $('coachFocus').textContent = backend.focus && bac
 $('gateForm').onsubmit = async e => {
   e.preventDefault(); const v = $('gateIn').value.trim(); if (!v) return;
   FAMILY = v; store.set('familyCode', v); $('gateMsg').textContent = 'Checking…';
-  await connect();
-  if (backend.ok || backend.reason === 'old-backend') { $('gate').close(); if (M) { mergeBackendTags(); queueSave(); } }
+  connecting = connect(); await connecting;
+  if (backend.ok || backend.reason === 'old-backend') { $('gate').close(); if (M) { mergeBackendTags(); queueSave(); } if (trendsAfterGate) { trendsAfterGate = false; showTrends(); } }
   else if (backend.reason === 'no-code') $('gateMsg').textContent = 'That code didn\'t work. Try again.';
   else { FAMILY = v; store.set('familyCode', v); $('gateMsg').textContent = 'Couldn\'t reach Career Mode right now (the backend isn\'t responding). Your code is saved; tags stay on this PC until it\'s back.'; }
 };
@@ -1187,7 +1188,21 @@ const trendActions = {
 function drawTrends() { if (trendsData) renderTrends($('trendsView'), trendsData, trendsState, trendActions); }
 async function showTrends() {
   setView('trends');
-  if (!backend.lib) { $('trendsView').innerHTML = '<p class="empty">Trends need the Career Mode connection. Enter the family code, then try again.</p>'; return; }
+  const box = $('trendsView');
+  // the page may still be connecting (Career Mode takes a few seconds to answer): wait for it
+  if (!backend.ok && connecting) { box.innerHTML = '<p class="empty">Connecting to Career Mode…</p>'; await connecting; }
+  if (!backend.lib) {
+    const why = backend.reason === 'no-code' ? 'Trends need the family code.'
+      : backend.reason === 'old-backend' ? 'Career Mode needs the latest Replay.gs in Apps Script.'
+      : backend.ok ? 'Career Mode needs the latest Replay.gs in Apps Script.'
+      : 'Couldn\'t reach Career Mode just now.';
+    box.innerHTML = `<p class="empty">${why} <button class="btn" id="trRetry">${backend.reason === 'no-code' ? 'Enter family code' : 'Try again'}</button></p>`;
+    $('trRetry').onclick = async () => {
+      if (backend.reason === 'no-code') { trendsAfterGate = true; $('gate').showModal(); return; }
+      box.innerHTML = '<p class="empty">Connecting to Career Mode…</p>'; connecting = connect(); await connecting; showTrends();
+    };
+    return;
+  }
   $('trendsView').innerHTML = '<p class="empty">Loading trends from Career Mode…</p>';
   try { trendsData = await api('replay', 'trends'); drawTrends(); }
   catch (e) { $('trendsView').innerHTML = `<p class="empty err">Couldn't load trends (${esc(e.message)}).${/Unknown replay action/.test(e.message) ? ' The Apps Script needs the latest Replay.gs.' : ''}</p>`; }
@@ -1242,7 +1257,7 @@ initParser().then(async () => {
   const last = store.get('replaylab:last', null);
   if (last && !M) { $('startMsg').textContent = 'Opening your last replay…'; await openSaved(last); if (!M) $('startMsg').textContent = ''; }
 }).catch(e => { $('startMsg').innerHTML = `<span class="err">The replay reader didn't load (${esc(e.message || e)}). Refresh the page.</span>`; });
-connect();
+connecting = connect();
 if (!FAMILY) setTimeout(() => { if (!$('gate').open) $('gate').showModal(); }, 400);
 // test hook: lets automated tests open a replay without a file picker
 window.__replayLab = { openFile, showTrends, get state() { return { M, t, review, backend, playlist }; } };
