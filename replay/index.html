@@ -245,10 +245,41 @@ dialog .row{justify-content:flex-end;margin-top:14px}
   .banner{font-size:36px}
   .kbd{display:none}
 }
+.shell{display:flex;height:100%}
+.shell>.app{flex:1 1 auto;min-width:0}
+.rail{flex:0 0 60px;background:#10164a;border-right:2px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0;box-sizing:border-box;overflow-y:auto}
+.rail a,.rail button,.rail .rl-soon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink);background:transparent;border:0;padding:0;cursor:pointer;text-decoration:none;flex:none}
+.rail a:hover,.rail button:hover{background:var(--deck)}
+.rail [aria-current="page"]{background:var(--deck2);color:var(--gold)}
+.rail .rl-soon{color:var(--line);cursor:default}
+.rail .rl-logo{font-family:var(--display);font-size:20px;margin-bottom:6px}
+.rail .rl-sep{width:28px;height:2px;background:var(--line);margin:6px 0;flex:none}
+@media (max-width:860px){
+  .shell{flex-direction:column;height:auto;min-height:100%}
+  .rail{flex:none;flex-direction:row;overflow-x:auto;padding:4px 8px;border-right:0;border-bottom:2px solid var(--line);width:100%}
+  .rail .rl-soon,.rail .rl-logo{display:none}
+  .rail .rl-sep{width:2px;height:28px;margin:0 6px}
+}
 @media (prefers-reduced-motion:reduce){.banner,.bar i,.toast{transition:none}}
 </style>
 </head>
 <body>
+<div class="shell">
+<nav class="rail" aria-label="Career Mode">
+  <a class="rl-logo" href="../#home" aria-label="Career Mode home" title="Career Mode">W</a>
+  <a href="../#home" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></a>
+  <a href="../#rank" aria-label="Rank" title="Rank"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></a>
+  <a href="../#quests" aria-label="Quests and journal" title="Quests &amp; journal"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg></a>
+  <a href="../#progression" aria-label="Progression" title="Progression"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M12 7v4M12 11l-6 5M12 11l6 5"/></svg></a>
+  <a href="../#fanclub" aria-label="Fan Club" title="Fan Club"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v11H9l-5 4z"/></svg></a>
+  <i class="rl-sep" aria-hidden="true"></i>
+  <button type="button" id="rlGames" aria-label="Games" title="Games" aria-current="page"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></button>
+  <button type="button" id="rlTrends" aria-label="Trends" title="Trends"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/></svg></button>
+  <span class="rl-soon" title="Focus · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg></span>
+  <span class="rl-soon" title="Clips · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l4 3-4 3z"/></svg></span>
+  <span class="rl-soon" title="Compare · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg></span>
+  <span class="rl-soon" title="Reference · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M9 12h6M9 16h6"/></svg></span>
+</nav>
 <div class="app" id="app">
   <header>
     <a class="back" href="../">← Career Mode</a>
@@ -357,6 +388,7 @@ dialog .row{justify-content:flex-end;margin-top:14px}
   </form>
 </dialog>
 
+</div>
 <dialog id="gate">
   <form id="gateForm">
     <h3>Family code</h3>
@@ -1219,10 +1251,14 @@ function setView(v) {
   $('app').classList.toggle('trends', v === 'trends');
   $('trendsView').hidden = v !== 'trends';
   $('vReplays').setAttribute('aria-selected', v !== 'trends'); $('vTrends').setAttribute('aria-selected', v === 'trends');
+  if (v === 'trends') { $('rlTrends').setAttribute('aria-current', 'page'); $('rlGames').removeAttribute('aria-current'); }
+  else { $('rlGames').setAttribute('aria-current', 'page'); $('rlTrends').removeAttribute('aria-current'); }
   if (v === 'trends') setPlaying(false); else resize();
 }
 $('vReplays').onclick = () => setView('replays');
 $('vTrends').onclick = () => showTrends();
+$('rlGames').onclick = () => setView('replays');
+$('rlTrends').onclick = () => showTrends();
 
 // clip player: loads each clip's replay (memory, this PC, or Drive), starts LEAD seconds before the moment
 const matchCache = new Map();
@@ -1260,12 +1296,18 @@ $('cbBack').onclick = () => { playlist = null; $('clipBar').hidden = true; showT
 resize();
 requestAnimationFrame(render);
 renderRecent();
+const startHash = location.hash;
+if (/^#(trends|games|game=)/.test(startHash)) history.replaceState(null, '', location.pathname + location.search);
 initParser().then(async () => {
+  // opened from Career Mode's Last Games: open that replay
+  const gm = /^#game=([A-Za-z0-9_-]{6,64})$/.exec(startHash);
+  if (gm) { $('startMsg').textContent = 'Opening the replay…'; await connecting; await openSaved(gm[1]); if (M) return; $('startMsg').textContent = ''; }
   // reopen the last replay automatically, at the same spot
   const last = store.get('replaylab:last', null);
   if (last && !M) { $('startMsg').textContent = 'Opening your last replay…'; await openSaved(last); if (!M) $('startMsg').textContent = ''; }
 }).catch(e => { $('startMsg').innerHTML = `<span class="err">The replay reader didn't load (${esc(e.message || e)}). Refresh the page.</span>`; });
 connecting = connect();
+if (startHash === '#trends') showTrends();
 if (!FAMILY) setTimeout(() => { if (!$('gate').open) $('gate').showModal(); }, 400);
 // test hook: lets automated tests open a replay without a file picker
 window.__replayLab = { openFile, showTrends, get state() { return { M, t, review, backend, playlist }; } };
