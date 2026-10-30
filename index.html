@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -310,11 +311,51 @@ button.skill:hover{border-color:var(--blue)}
 @media (max-width:860px){.calwrap,.twocol{grid-template-columns:1fr}.skilltiers{grid-template-columns:1fr}}
 @media (max-width:760px){.bossgrid{grid-template-columns:1fr}.bosside{text-align:left;justify-items:start}.hero{grid-template-columns:auto 1fr}.checkin{grid-column:1/-1}}
 @media (max-width:460px){.hero{grid-template-columns:1fr}.emblem{width:90px;height:90px}.balrow{grid-template-columns:96px 1fr 44px}.face{font-size:28px}}
+.shell{display:flex;min-height:100vh}
+.shell>.wrap{flex:1 1 auto;min-width:0;width:100%}
+.side{flex:0 0 232px;position:sticky;top:0;height:100vh;overflow-y:auto;background:#10164a;border-right:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column;gap:2px;box-sizing:border-box;z-index:5}
+.side .logo{font-family:var(--display);font-size:24px;padding:4px 10px 14px}
+.side .grp{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:600;padding:16px 10px 6px}
+.side a,.side .soon{display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;color:var(--ink);text-decoration:none;min-height:44px;box-sizing:border-box}
+.side a:hover{background:var(--deck)}
+.side a[aria-current="page"]{background:var(--deck2);color:var(--gold);font-weight:700}
+.side .soon{color:var(--mute);cursor:default}
+.side .soon small{margin-left:auto;font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.lastgames{display:grid;gap:6px}
+.lg{display:grid;grid-template-columns:28px 52px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--night);color:var(--ink);text-decoration:none}
+.lg:hover{background:var(--deck2)}
+.lg .r{font-weight:700;text-align:center}.lg .r.w{color:var(--mint)}.lg .r.l{color:var(--orange)}
+.lg .opp{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg .m{color:var(--mute);font-size:13px}
+@media (max-width:900px){
+  .shell{flex-direction:column}
+  .side{position:sticky;top:0;height:auto;flex:none;flex-direction:row;overflow-x:auto;padding:8px;border-right:0;border-bottom:1px solid var(--line);gap:4px}
+  .side .logo,.side .grp,.side .soon{display:none}
+  .side a{flex:none;white-space:nowrap;padding:8px 12px}
+  .lg{grid-template-columns:24px 44px minmax(0,1fr) auto}.lg .d{display:none}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <canvas id="fx"></canvas>
 <div class="toast" id="toast" role="status"></div>
+<div class="shell">
+<nav class="side" aria-label="Career Mode">
+  <div class="logo">WESTYYY</div>
+  <a href="#home" data-nav="home"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</a>
+  <div class="grp">Career Mode</div>
+  <a href="#rank" data-nav="rank"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Rank</a>
+  <a href="#quests" data-nav="quests"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Quests &amp; journal</a>
+  <a href="#progression" data-nav="progression"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M12 7v4M12 11l-6 5M12 11l6 5"/></svg>Progression</a>
+  <a href="#fanclub" data-nav="fanclub"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v11H9l-5 4z"/></svg>Fan Club</a>
+  <div class="grp">Replay Lab</div>
+  <a href="replay/#games"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>Games</a>
+  <a href="replay/#trends"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/></svg>Trends</a>
+  <span class="soon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>Focus<small>soon</small></span>
+  <span class="soon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l4 3-4 3z"/></svg>Clips<small>soon</small></span>
+  <span class="soon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg>Compare<small>soon</small></span>
+  <span class="soon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M9 12h6M9 16h6"/></svg>Reference<small>soon</small></span>
+</nav>
 <main class="wrap">
 
   <header class="hero">
@@ -333,7 +374,7 @@ button.skill:hover{border-color:var(--blue)}
     <button class="checkin" id="checkinBtn" type="button">End of day<br>check-in<small id="checkinSub">4 quick questions</small></button>
   </header>
 
-  <section class="focus" aria-label="This week's coach focus">
+  <section class="focus" data-view="home" aria-label="This week's coach focus">
     <div style="flex:1;min-width:200px">
       <div class="eyebrow">This week's focus from Coach</div>
       <div class="ft" id="focusText">No focus set yet</div>
@@ -345,7 +386,7 @@ button.skill:hover{border-color:var(--blue)}
     </div>
   </section>
 
-  <section class="boss" aria-labelledby="bossTitle">
+  <section class="boss" data-view="home rank" aria-labelledby="bossTitle">
     <div class="bossgrid">
       <div>
         <div class="eyebrow" style="color:#e9d8ff" id="bossTitle">Next unlock · Doubles 2v2</div>
@@ -363,7 +404,7 @@ button.skill:hover{border-color:var(--blue)}
     </div>
   </section>
 
-  <section class="goal" aria-labelledby="gTitle">
+  <section class="goal" data-view="home rank" aria-labelledby="gTitle">
     <div class="ghead">
       <div><div class="eyebrow">Season goal · GC II in 2v2 by <span id="gEnd"></span></div><h2 id="gTitle" class="status" style="margin-top:4px"></h2></div>
       <span class="chip" id="gDays"></span>
@@ -373,7 +414,7 @@ button.skill:hover{border-color:var(--blue)}
     <div class="gstats" id="gStats"></div>
   </section>
 
-  <section class="panel" aria-labelledby="qTitle">
+  <section class="panel" data-view="home quests" aria-labelledby="qTitle">
     <div class="sechead">
       <div><div class="eyebrow">Today's missions</div><h2 id="qTitle">Daily Quests</h2></div>
       <div class="statrow">
@@ -384,7 +425,7 @@ button.skill:hover{border-color:var(--blue)}
     <div class="quests" id="quests"></div>
   </section>
 
-  <section class="panel" aria-labelledby="jTitle">
+  <section class="panel" data-view="quests" aria-labelledby="jTitle">
     <div class="sechead">
       <div><div class="eyebrow">How every day went</div><h2 id="jTitle">Player Journal</h2></div>
       <span class="statrow"><span class="chip">Check-ins <b id="ciCount">0</b></span><span class="chip" id="freezeInfo"></span></span>
@@ -409,22 +450,18 @@ button.skill:hover{border-color:var(--blue)}
     <div class="insight" id="insight"></div>
   </section>
 
-  <section class="panel" aria-labelledby="prTitle">
-    <div class="sechead"><div><div class="eyebrow">Your best ever</div><h2 id="prTitle">Personal Records</h2></div><span class="chip" id="prCount"></span></div>
-    <div class="prs" id="prs"></div>
-  </section>
 
-  <section class="panel" aria-labelledby="ppTitle">
+  <section class="panel" data-view="progression" aria-labelledby="ppTitle">
     <div class="sechead"><div><div class="eyebrow">The road to pro</div><h2 id="ppTitle">Pro Path</h2></div></div>
     <div class="tracks" id="tracks"></div>
   </section>
 
-  <section aria-labelledby="rTitle">
+  <section data-view="rank" aria-labelledby="rTitle">
     <div class="sechead"><div><div class="eyebrow">Where you stand right now</div><h2 id="rTitle">Rank Garage</h2></div><span class="eyebrow">7-day change in green</span></div>
     <div class="ranks" id="ranks"></div>
   </section>
 
-  <section class="panel" aria-labelledby="cTitle">
+  <section class="panel" data-view="rank" aria-labelledby="cTitle">
     <div class="sechead">
       <div><div class="eyebrow">One year of grinding</div><h2 id="cTitle">Rating Journey</h2></div>
       <div class="tabs" id="tabs"></div>
@@ -433,7 +470,12 @@ button.skill:hover{border-color:var(--blue)}
     <div class="glow" id="glow"></div>
   </section>
 
-  <section class="panel stream" aria-labelledby="stTitle">
+  <section class="panel" data-view="rank" aria-labelledby="prTitle">
+    <div class="sechead"><div><div class="eyebrow">Your best ever</div><h2 id="prTitle">Personal Records</h2></div><span class="chip" id="prCount"></span></div>
+    <div class="prs" id="prs"></div>
+  </section>
+
+  <section class="panel stream" data-view="fanclub" aria-labelledby="stTitle">
     <div class="sechead">
       <div><div class="eyebrow" style="color:#cdb6ff">Content with Dad · @westyyywest everywhere</div><h2 id="stTitle">Fan Club</h2></div>
       <span class="chip" id="fanUpdated"></span>
@@ -449,30 +491,33 @@ button.skill:hover{border-color:var(--blue)}
     </div>
   </section>
 
-  <section class="panel" aria-labelledby="skTitle">
+  <section class="panel" data-view="progression" aria-labelledby="skTitle">
     <div class="sechead"><div><div class="eyebrow">Signed off by Coach</div><h2 id="skTitle">Skill Tree</h2></div><span class="chip">Unlocked <b id="skCount">0</b></span></div>
     <div class="skilltiers" id="skills"></div>
   </section>
 
-  <div class="twocol">
-    <section class="panel" aria-labelledby="bTitle">
+    <section class="panel" data-view="quests" aria-labelledby="bTitle">
       <div class="sechead"><div><div class="eyebrow">Last 7 days, from check-ins</div><h2 id="bTitle">Balance</h2></div></div>
       <div class="bal" id="balance"></div>
       <p class="muted" id="balNote" style="margin:12px 0 0"></p>
     </section>
-    <section class="panel" aria-labelledby="pTitle">
+    <section class="panel" data-view="progression" aria-labelledby="pTitle">
       <div class="sechead"><div><div class="eyebrow">What you're great at</div><h2 id="pTitle">Superpowers</h2></div></div>
       <div class="powers" id="powers"></div>
     </section>
-  </div>
 
-  <section class="panel" aria-labelledby="tTitle">
+  <section class="panel" data-view="progression" aria-labelledby="tTitle">
     <div class="sechead"><div><div class="eyebrow">Every match ever</div><h2 id="tTitle">Trophy Wall</h2></div></div>
     <div class="trophies" id="trophies"></div>
     <div class="badges" id="badges"></div>
   </section>
 
-  <section class="panel" aria-labelledby="sTitle">
+  <section class="panel" data-view="home" aria-labelledby="lgTitle">
+    <div class="sechead"><div><div class="eyebrow">From Replay Lab</div><h2 id="lgTitle">Last Games</h2></div><a class="btn" href="replay/#games" style="text-decoration:none">All games →</a></div>
+    <div class="lastgames" id="lastGames"><p class="muted" style="margin:0">Loading…</p></div>
+  </section>
+
+  <section class="panel" data-view="rank" aria-labelledby="sTitle">
     <div class="sechead"><div><div class="eyebrow">Last 10 play sessions</div><h2 id="sTitle">Recent Runs</h2></div></div>
     <div class="sessions" id="sessions"></div>
   </section>
@@ -480,6 +525,7 @@ button.skill:hover{border-color:var(--blue)}
   <div class="coachbar" id="coachBar"></div>
   <p class="foot">Stats from Rocket League Tracker, updated <span id="snap"></span>. Rank cut-offs are approximate. Affiliate targets: 25 followers, 4 hours, 4 days, 3 average viewers in 30 days.</p>
 </main>
+</div>
 
 <div class="overlay" id="gate" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gateTitle" style="max-width:420px">
@@ -1147,4 +1193,36 @@ function tick(){ cx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); cx.
   parts=parts.filter(p=>p.life-->0); parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.25;p.vx*=.98;cx.fillStyle=p.c;cx.globalAlpha=Math.min(1,p.life/30);cx.fillRect(p.x,p.y,p.r,p.r*1.6);});
   cx.globalAlpha=1; if(parts.length) requestAnimationFrame(tick); else { running=false; cx.clearRect(0,0,innerWidth,innerHeight); } }
 let tt; function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('show'),1800); }
+
+// ===== sidebar views: Home, Rank, Quests & journal, Progression, Fan Club =====
+(function(){
+  const VIEWS=['home','rank','quests','progression','fanclub'];
+  let lastLoaded=false;
+  async function loadLast(){
+    const box=document.getElementById('lastGames'); if(!box||lastLoaded) return;
+    if(!FAMILY){ box.innerHTML='<p class="muted" style="margin:0">Enter the family code to see games.</p>'; return; }
+    lastLoaded=true;
+    try{
+      const lib=await api('replay','library');
+      const reps=(lib.replays||[]).slice().reverse().slice(0,6);
+      box.innerHTML='';
+      if(!reps.length){ box.innerHTML='<p class="muted" style="margin:0">No games yet. Upload replays in Replay Lab.</p>'; return; }
+      reps.forEach(r=>{
+        const a=document.createElement('a'); a.className='lg'; a.href='replay/#game='+encodeURIComponent(r.id);
+        const res=String(r.result||''), win=res[0]==='W';
+        const cells=[['r '+(win?'w':'l'),res[0]||''],['sc',res.split(' ')[1]||''],['opp',r.opponent||''],['m',r.mode||''],['m d',r.date||'']];
+        cells.forEach(([c,t])=>{ const sp=document.createElement('span'); sp.className=c; sp.textContent=t; a.appendChild(sp); });
+        box.appendChild(a);
+      });
+    }catch(e){ lastLoaded=false; box.innerHTML='<p class="muted" style="margin:0">Couldn\'t load games right now.</p>'; }
+  }
+  function show(){
+    let v=(location.hash||'#home').slice(1); if(!VIEWS.includes(v)) v='home';
+    document.querySelectorAll('[data-view]').forEach(el=>{ el.hidden=!el.dataset.view.split(' ').includes(v); });
+    document.querySelectorAll('.side a[data-nav]').forEach(a=>{ if(a.dataset.nav===v) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+    if(v==='home') loadLast();
+  }
+  window.addEventListener('hashchange',()=>{ show(); window.scrollTo(0,0); });
+  show();
+})();
 </script>
