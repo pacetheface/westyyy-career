@@ -31,7 +31,7 @@ button{font:inherit;color:inherit}
 .views button[aria-selected="true"]{background:var(--deck2);color:var(--ink)}
 .views button:focus-visible{outline:3px solid var(--gold);outline-offset:1px}
 .app.trends .stage,.app.trends aside,.app.trends .transport{display:none}
-#trendsView{grid-column:1/-1;grid-row:2/4;overflow:auto;padding:18px max(16px,env(safe-area-inset-left,0px)) 40px;padding-right:max(16px,env(safe-area-inset-right,0px))}
+#trendsView,#clipsView{grid-column:1/-1;grid-row:2/4;overflow:auto;padding:18px max(16px,env(safe-area-inset-left,0px)) 40px;padding-right:max(16px,env(safe-area-inset-right,0px))}
 #trendsView>*{max-width:1100px;margin-left:auto;margin-right:auto}
 .tr-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .tr-head h1{font-family:var(--display);font-weight:400;font-size:30px;margin:0}
@@ -246,6 +246,27 @@ dialog .row{justify-content:flex-end;margin-top:14px}
   .kbd{display:none}
 }
 .shell{display:flex;height:100%}
+.cl-wrap{max-width:1180px;margin:0 auto}
+.cl-head h2{font-family:var(--display);font-weight:400;margin:0 0 4px;font-size:24px}
+.cl-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:14px}
+.cl-cols section{background:var(--deck);border:2px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.cl-sh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.cl-sh h3{margin:0;font-family:var(--display);font-weight:400;font-size:16px}
+.cl-sh input,.cl-new input,.cl-lbl input{background:var(--night);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;min-height:40px;box-sizing:border-box}
+.cl-new{display:flex;gap:8px}.cl-new input{flex:1;min-width:0}
+.cl-row{display:flex;align-items:center;gap:8px;background:var(--night);border-radius:10px;padding:8px 10px}
+.cl-row.sm{padding:6px 8px}
+.cl-row select{background:var(--deck2);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:6px;font:inherit;max-width:140px;min-height:36px}
+.cl-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.cl-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cl-main span{color:var(--mute);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-b{font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;color:var(--night);white-space:nowrap}
+.cl-b.west{background:var(--blue)}.cl-b.ref{background:var(--orange)}
+.cl-comp{display:flex;flex-direction:column;gap:6px}.cl-comp.open>.cl-row{outline:2px solid var(--gold)}
+.cl-edit{display:flex;flex-direction:column;gap:6px;padding:4px 0 8px 12px;border-left:2px solid var(--line)}
+.cl-lbl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute)}.cl-lbl input{flex:1}
+.refb{background:var(--orange);color:var(--night);font-weight:700;border-radius:6px;padding:1px 8px}
+#followList{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+@media (max-width:860px){.cl-cols{grid-template-columns:1fr}}
 .shell>.app{flex:1 1 auto;min-width:0}
 .rail{flex:0 0 60px;background:#10164a;border-right:2px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0;box-sizing:border-box;overflow-y:auto}
 .rail a,.rail button,.rail .rl-soon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--ink);background:transparent;border:0;padding:0;cursor:pointer;text-decoration:none;flex:none}
@@ -276,9 +297,9 @@ dialog .row{justify-content:flex-end;margin-top:14px}
   <button type="button" id="rlGames" aria-label="Games" title="Games" aria-current="page"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></button>
   <button type="button" id="rlTrends" aria-label="Trends" title="Trends"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/></svg></button>
   <span class="rl-soon" title="Focus · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg></span>
-  <span class="rl-soon" title="Clips · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l4 3-4 3z"/></svg></span>
+  <button type="button" id="rlClips" aria-label="Clips" title="Clips"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l4 3-4 3z"/></svg></button>
   <span class="rl-soon" title="Compare · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg></span>
-  <span class="rl-soon" title="Reference · coming soon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M9 12h6M9 16h6"/></svg></span>
+  <button type="button" id="rlRef" aria-label="Reference games" title="Reference games"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M9 12h6M9 16h6"/></svg></button>
 </nav>
 <div class="app" id="app">
   <header>
@@ -323,6 +344,11 @@ dialog .row{justify-content:flex-end;margin-top:14px}
           <div class="eyebrow" style="color:var(--mute);margin-bottom:6px" id="recentTitle">Your replays</div>
           <div class="past" id="recent"></div>
         </div>
+        <div id="refWrap" hidden style="margin-top:16px">
+          <div class="eyebrow" style="color:var(--mute);margin-bottom:6px" id="refTitle">Reference games</div>
+          <p style="font-size:13px;margin:0 0 8px">Replays without westyyy in them (pros, other players) are kept here. They never count toward West's games, Trends or Career Mode.</p>
+          <div class="past" id="refList"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -349,6 +375,7 @@ dialog .row{justify-content:flex-end;margin-top:14px}
   </aside>
 
   <div id="trendsView" hidden></div>
+  <div id="clipsView" hidden></div>
 
   <div class="transport">
     <div class="clipbar" id="clipBar" hidden>
@@ -370,12 +397,38 @@ dialog .row{justify-content:flex-end;margin-top:14px}
       <div class="grp" id="cams"></div>
       <button class="btn" id="ballcamBtn" type="button" aria-pressed="true" title="Ball cam: on → as played → off (B)">Ball cam: on</button>
       <div class="spacer"></div>
+      <button class="btn" id="clipBtn" type="button" hidden>✂ Save clip</button>
       <button class="btn primary" id="tagBtn" type="button">+ Tag this moment</button>
     </div>
     <div class="kbd"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> 1s · <kbd>↓</kbd><kbd>↑</kbd> 5s · <kbd>,</kbd><kbd>.</kbd> frame step · <kbd>1</kbd>–<kbd>9</kbd> cameras · <kbd>B</kbd> ball cam · <kbd>T</kbd> tag · drag in Orbit view to look around</div>
   </div>
 </div>
 
+<dialog id="followDlg">
+  <form method="dialog" onsubmit="return false">
+    <h3>Reference game</h3>
+    <p class="sub">westyyy isn't in <b id="followFile"></b>, so it will be saved as a reference game. Whose view should it follow?</p>
+    <div id="followList"></div>
+    <div class="row"><button class="btn" id="followCancel" type="button">Cancel</button></div>
+  </form>
+</dialog>
+<dialog id="clipDlg">
+  <form id="clipForm">
+    <h3>Save clip</h3>
+    <p class="sub" id="clipWhen"></p>
+    <label for="clipTitle">What happens?</label>
+    <input type="text" id="clipTitle" maxlength="120" placeholder="e.g. Turns in behind the ball, first touch forward" required>
+    <label for="clipTags">Tags (optional)</label>
+    <input type="text" id="clipTags" maxlength="200" placeholder="e.g. first touch, lined up">
+    <div class="row" style="justify-content:flex-start;gap:14px">
+      <label style="display:flex;align-items:center;gap:6px">Seconds before <input type="number" id="clipBefore" min="0" max="30" step="1" value="5" style="width:70px"></label>
+      <label style="display:flex;align-items:center;gap:6px">after <input type="number" id="clipAfter" min="0" max="30" step="1" value="2" style="width:70px"></label>
+    </div>
+    <label for="clipComp">Add to compilation</label>
+    <select id="clipComp"><option value="">No compilation</option></select>
+    <div class="row"><button class="btn" id="clipCancel" type="button">Cancel</button><button class="btn primary" type="submit">Save clip</button></div>
+  </form>
+</dialog>
 <dialog id="tagDlg">
   <form id="tagForm">
     <h3>Tag this moment</h3>
@@ -409,6 +462,7 @@ import { parseReplay, initParser } from './core.js';
 import { analyze, CAUSES, findPlayer } from './analysis.js';
 import { buildData, toTables, MOMENT_TYPES, NUMBERS } from './moments.js';
 import { renderTrends } from './trends.js';
+import { cutClip, renderClips } from './clips.js';
 
 const $ = id => document.getElementById(id);
 const fmt = s => { s = Math.max(0, Math.round(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
@@ -612,6 +666,7 @@ const posB = new THREE.Vector3(), qB = new THREE.Quaternion();
 let posC = [], qC = [];
 let review = { tags: [] }, focusMode = 'where';
 let A = { game: null, beats: [] }, oppStats = null, curBytes = null, curName = '', D = null, resetTimes = [];
+let isRef = false, isClip = false;   // reference game (not West's) / saved clip
 
 const qb2 = new THREE.Quaternion(), pb = new THREE.Vector3();
 function decode(e, out, q) { out.set(e[0], e[2], e[1]); q.set(-e[3], -e[5], -e[4], e[6]).normalize(); }
@@ -628,7 +683,8 @@ function hfovToV(h, aspect) { return 2 * Math.atan(Math.tan(h*Math.PI/360) / asp
 
 function boot(match) {
   M = match; T = M.t; N = T.length; DUR = T[N-1]; P = M.players;
-  ME = P.findIndex(p => /westyyy/i.test(p.name)); if (ME < 0) ME = 0;
+  isClip = !!M.isClip; isRef = !!M.ref || (isClip && M.source === 'ref');
+  ME = typeof M.follow === 'number' && P[M.follow] ? M.follow : P.findIndex(p => /westyyy/i.test(p.name)); if (ME < 0) ME = 0;
   myTeam = P[ME].team;
   // clear old match objects
   while (matchGroup.children.length) matchGroup.remove(matchGroup.children[0]);
@@ -655,29 +711,33 @@ function boot(match) {
   // header + HUD names
   const d = M.meta, mine = myTeam === 0 ? d.Team0Score : d.Team1Score, theirs = myTeam === 0 ? d.Team1Score : d.Team0Score;
   const opps = P.filter(p => p.team !== myTeam).map(p => short(p.name));
-  $('meta').innerHTML = `<span><b>${d.TeamSize}v${d.TeamSize}</b></span><span><b>${esc(short(P[ME].name))}</b> vs <b>${esc(opps.join(', '))}</b></span><span>${mine > theirs ? 'Won' : mine < theirs ? 'Lost' : 'Tied'} <b>${mine}–${theirs}</b></span><span>${esc((d.Date||'').split(' ')[0])}</span>`;
+  $('meta').innerHTML = (isClip ? `<span class="refb">Clip</span>` : isRef ? `<span class="refb">Reference</span>` : '') + `<span><b>${d.TeamSize}v${d.TeamSize}</b></span><span><b>${esc(short(P[ME].name))}</b> vs <b>${esc(opps.join(', '))}</b></span><span>${mine > theirs ? 'Won' : mine < theirs ? 'Lost' : 'Tied'} <b>${mine}–${theirs}</b></span><span>${esc((d.Date||'').split(' ')[0])}</span>`;
   $('n0').textContent = P.filter(p => p.team === 0).map(p => short(p.name)).join(' · ') || 'Blue';
   $('n1').textContent = P.filter(p => p.team === 1).map(p => short(p.name)).join(' · ') || 'Orange';
   // cameras: one per player, then orbit and stadium
-  CAMS = P.map((p, k) => ({ id: 'p' + k, label: k === ME ? 'My view' : short(p.name) + '\'s view', idx: k })).concat([{ id: 'orbit', label: 'Orbit' }, { id: 'stadium', label: 'Stadium' }]);
+  CAMS = P.map((p, k) => ({ id: 'p' + k, label: k === ME && !isRef ? 'My view' : short(p.name) + '\'s view', idx: k })).concat([{ id: 'orbit', label: 'Orbit' }, { id: 'stadium', label: 'Stadium' }]);
   $('cams').innerHTML = '';
   CAMS.forEach((c, k) => { const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.dataset.id = c.id; b.textContent = c.label; b.title = 'Camera ' + (k+1); b.onclick = () => setCam(c.id); $('cams').appendChild(b); });
   // tags: Career Mode copy wins, else this PC's copy
-  review = { tags: store.get('replaylab:' + M.id, []) };
-  mergeBackendTags();
+  // reference games and clips keep no tags (tags are West's Career Mode credit)
+  review = { tags: isRef || isClip ? [] : store.get('replaylab:' + M.id, []) };
+  if (!isRef && !isClip) mergeBackendTags();
   // analysis: game stats + where West got beat; keep any causes he already confirmed
-  A = analyze(M, ME);
-  D = buildData(M);
-  oppStats = P.length === 2 ? analyze(M, P.findIndex((p, k) => k !== ME)).game : null;
-  const saved = (backend.beats || {})[M.id] || store.get('replaylab:beats:' + M.id, []);
+  try {
+    A = analyze(M, ME);
+    D = buildData(M);
+    oppStats = P.length === 2 ? analyze(M, P.findIndex((p, k) => k !== ME)).game : null;
+  } catch (e) { console.warn('analysis skipped', e); A = { game: null, beats: [] }; D = null; oppStats = null; }
+  const saved = isRef || isClip ? [] : (backend.beats || {})[M.id] || store.get('replaylab:beats:' + M.id, []);
   A.beats.forEach(b => { const s = saved.find(x => Number(x.n) === b.n); if (s && s.confirmed) b.confirmed = s.confirmed; });
   $('scrub').max = DUR; $('scrub').disabled = false;
   $('start').hidden = true; $('hud').hidden = false; $('newReplay').hidden = false;
+  $('tagBtn').hidden = isRef || isClip; $('clipBtn').hidden = isClip;
   setCam('p' + ME);
   tab('b');
   renderAll();
   // always open at the start of the match; offer to continue where you left off
-  const resume = store.get('replaylab:pos:' + M.id, null);
+  const resume = isClip ? null : store.get('replaylab:pos:' + M.id, null);
   activeMoment = -1; seek(0);
   const rb = $('resumeBtn');
   rb.hidden = !(typeof resume === 'number' && resume > 5 && resume < DUR - 2);
@@ -766,7 +826,7 @@ function render(now) {
   requestAnimationFrame(render);
   const dtS = Math.min(.1, (now - lastNow) / 1000); lastNow = now;
   if (!M) { camera.position.set(Math.sin(now/9000)*7000, 3200, Math.cos(now/9000)*7000); camera.lookAt(0,0,0); renderer.render(scene, camera); return; }
-  if (playing) { t += dtS * speed; if (stopAt !== null && t >= stopAt) { t = stopAt; stopAt = null; setPlaying(false); } if (t >= DUR) { t = DUR; setPlaying(false); } }
+  if (playing) { t += dtS * speed; if (stopAt !== null && t >= stopAt) { t = stopAt; stopAt = null; setPlaying(false); autoNext(); } if (t >= DUR) { t = DUR; setPlaying(false); } }
   const i = frameAt(t), w = i < N-1 ? (t - T[i]) / (T[i+1] - T[i]) : 0;
   const hasBall = sample(M.ball, i, w, posB, qB);
   [ball, ghost, shadow, trail].forEach(o => o.visible = hasBall);
@@ -937,7 +997,7 @@ function renderAll() {
   });
 }
 function openTag() {
-  if (!M) return;
+  if (!M || isRef || isClip) return;
   setPlaying(false);
   $('tagCat').value = curFocus().cat; $('tagNote').value = '';
   $('tagWhen').textContent = `Game clock ${fmt(M.clock[frameAt(t)])} (replay time ${fmtT(t)})`;
@@ -969,7 +1029,7 @@ function renderData() {
   $('beatCount').textContent = '';
   // numbers side by side
   const rows = NUMBERS.filter(([k]) => dataView.all || KEY_NUMBERS.includes(k)).filter(([k]) => D.numbers.some(n => n[k] !== null));
-  const head = D.numbers.map((n, k) => `<th style="color:${n.team === 0 ? 'var(--blue)' : 'var(--orange)'}">${esc(short(n.name))}${k === ME ? ' (you)' : ''}</th>`).join('');
+  const head = D.numbers.map((n, k) => `<th style="color:${n.team === 0 ? 'var(--blue)' : 'var(--orange)'}">${esc(short(n.name))}${k === ME ? (isRef ? ' (followed)' : ' (you)') : ''}</th>`).join('');
   box.insertAdjacentHTML('beforeend', `<div class="sect" style="color:var(--ink)">Numbers</div>
     <div class="tblwrap"><table class="nums"><thead><tr><th></th>${head}</tr></thead><tbody>${rows.map(([k, label, unit]) => `<tr><td>${esc(label)}</td>${D.numbers.map(n => `<td>${esc(fmtNum(n[k], unit))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <button class="btn" type="button" id="numsAll">${dataView.all ? 'Show key numbers' : `Show all ${NUMBERS.length} numbers`}</button>`);
@@ -993,6 +1053,7 @@ function renderData() {
 }
 let beatT = 0;
 function beatsChanged() {
+  if (isRef || isClip) return;
   store.set('replaylab:beats:' + M.id, A.beats.map(b => ({ n: b.n, confirmed: b.confirmed })));
   if (backend.lib) backend.beats[M.id] = A.beats.map(b => Object.assign({}, b));
   renderRecent();
@@ -1022,7 +1083,7 @@ async function uploadMatch(match, bytes, an, fileName) {
   return inLib ? 'updated' : 'uploaded';
 }
 async function syncLibrary() {
-  if (!M || !A.game || !backend.lib) return;
+  if (!M || !A.game || !backend.lib || isRef || isClip) return;
   const inLib = (backend.replays || []).some(r => r.id === M.id);
   setSync('warn', inLib ? 'Updating Career Mode…' : 'Saving replay to Google Drive…');
   try {
@@ -1049,6 +1110,15 @@ async function importMany(files) {
       const bytes = new Uint8Array(await files[i].arrayBuffer());
       const match = await parseReplay(bytes);
       if (!match.players.length || !match.t.length) throw new Error('no match data');
+      if (!match.players.some(p => /westyyy/i.test(p.name))) {
+        const follow = await pickFollow(match, files[i].name);
+        if (follow === null) { L.txt = 'skipped'; draw(`Importing ${i + 1} of ${files.length}…`); continue; }
+        L.txt = 'saving reference game…'; draw(`Importing ${i + 1} of ${files.length}…`);
+        const res = await saveRef(match, bytes, files[i].name, follow);
+        tally[res === 'uploaded' ? 'uploaded' : res === 'already' ? 'already' : 'local']++;
+        L.txt = res === 'uploaded' ? '✓ saved as reference game' : res === 'already' ? 'reference game already saved' : 'not saved (not connected)'; L.cls = 'ok';
+        draw(`Importing ${i + 1} of ${files.length}…`); continue;
+      }
       const me = findPlayer(match), an = { me, a: analyze(match, me), d: buildData(match) };
       L.name = `${an.a.game.date} · ${an.a.game.mode} vs ${an.a.game.opponent} (${an.a.game.result} ${an.a.game.goalsFor}-${an.a.game.goalsAgainst})`;
       await remember(match, bytes, files[i].name);
@@ -1068,9 +1138,9 @@ async function importMany(files) {
 // ================= saving =================
 let saveT = 0;
 function changed() { store.set('replaylab:' + M.id, review.tags); renderAll(); queueSave(); }
-function queueSave() { clearTimeout(saveT); saveT = setTimeout(saveNow, 700); }
+function queueSave() { if (isRef || isClip) return; clearTimeout(saveT); saveT = setTimeout(saveNow, 700); }
 async function saveNow() {
-  if (!M) return;
+  if (!M || isRef || isClip) return;
   if (!backend.ok) { if (backend.reason === 'no-code' && review.tags.length === 1 && !$('gate').open) $('gate').showModal(); return; }
   const d = M.meta, mine = myTeam === 0 ? d.Team0Score : d.Team1Score, theirs = myTeam === 0 ? d.Team1Score : d.Team0Score;
   const payload = {
@@ -1133,6 +1203,7 @@ async function renderRecent() {
   (backend.replays || []).forEach(r => { byId[r.id] = { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: true, opened: 0, file: r.originalName || '' }; });
   local.forEach(r => { const o = byId[r.id] || { id: r.id, date: r.date, mode: r.mode, opponent: r.opponent, result: r.result, drive: false }; byId[r.id] = Object.assign(o, { local: true, opened: r.opened, file: o.file || r.name || '' }); });
   const list = Object.values(byId).sort((x, y) => String(y.date).localeCompare(String(x.date)) || (y.opened || 0) - (x.opened || 0));
+  renderRefs();
   $('recentWrap').hidden = !list.length;
   $('recentTitle').textContent = backend.lib ? `Your replays (${list.length})` : 'Replays on this PC';
   const box = $('recent'); box.innerHTML = '';
@@ -1186,6 +1257,16 @@ async function openBytes(bytes, name) {
   try {
     const match = await parseReplay(bytes);
     if (!match.players.length || !match.t.length) throw new Error('No match data in this replay');
+    if (!match.players.some(p => /westyyy/i.test(p.name))) {
+      const follow = await pickFollow(match, name);
+      $('startMsg').textContent = '';
+      if (follow === null) return;
+      match.ref = true; match.follow = follow;
+      boot(match); curBytes = bytes; curName = name;
+      try { const r = await saveRef(match, bytes, name, follow); setSync(r === 'local' ? 'warn' : 'ok', r === 'uploaded' ? 'Reference game saved to Google Drive' : r === 'already' ? 'Reference game (already saved)' : 'Reference game: not saved (not connected)'); }
+      catch (e) { setSync('bad', 'Reference game not saved: ' + e.message + (/Unknown replay action/.test(e.message) ? ' (Apps Script needs the latest Replay.gs)' : '')); }
+      return;
+    }
     $('startMsg').textContent = '';
     boot(match);
     curBytes = bytes; curName = name;
@@ -1199,7 +1280,7 @@ async function openBytes(bytes, name) {
 // remember the playback position so coming back picks up at the same moment
 let posSavedAt = 0;
 function savePos(force) {
-  if (!M) return; const now = Date.now();
+  if (!M || isClip) return; const now = Date.now();
   if (!force && now - posSavedAt < 3000) return;
   posSavedAt = now; store.set('replaylab:pos:' + M.id, +t.toFixed(2));
 }
@@ -1248,17 +1329,18 @@ async function showTrends() {
   catch (e) { $('trendsView').innerHTML = `<p class="empty err">Couldn't load trends (${esc(e.message)}).${/Unknown replay action/.test(e.message) ? ' The Apps Script needs the latest Replay.gs.' : ''}</p>`; }
 }
 function setView(v) {
-  $('app').classList.toggle('trends', v === 'trends');
-  $('trendsView').hidden = v !== 'trends';
-  $('vReplays').setAttribute('aria-selected', v !== 'trends'); $('vTrends').setAttribute('aria-selected', v === 'trends');
-  if (v === 'trends') { $('rlTrends').setAttribute('aria-current', 'page'); $('rlGames').removeAttribute('aria-current'); }
-  else { $('rlGames').setAttribute('aria-current', 'page'); $('rlTrends').removeAttribute('aria-current'); }
-  if (v === 'trends') setPlaying(false); else resize();
+  $('app').classList.toggle('trends', v === 'trends' || v === 'clips');   // both hide the viewer
+  $('trendsView').hidden = v !== 'trends'; $('clipsView').hidden = v !== 'clips';
+  $('vReplays').setAttribute('aria-selected', v === 'replays'); $('vTrends').setAttribute('aria-selected', v === 'trends');
+  [['rlGames', 'replays'], ['rlTrends', 'trends'], ['rlClips', 'clips']].forEach(([id, w]) => { if (v === w) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current'); });
+  if (v !== 'replays') setPlaying(false); else resize();
 }
 $('vReplays').onclick = () => setView('replays');
 $('vTrends').onclick = () => showTrends();
 $('rlGames').onclick = () => setView('replays');
 $('rlTrends').onclick = () => showTrends();
+$('rlClips').onclick = () => showClips();
+$('rlRef').onclick = () => showRefs();
 
 // clip player: loads each clip's replay (memory, this PC, or Drive), starts LEAD seconds before the moment
 const matchCache = new Map();
@@ -1275,7 +1357,17 @@ async function loadMatchById(id) {
   boot(match);
   return true;
 }
-function startPlaylist(title, clips) { playlist = { title, clips, i: 0 }; setView('replays'); $('clipBar').hidden = false; playClip(0); }
+function startPlaylist(title, clips, opts = {}) {
+  playlist = { title, clips, i: 0, kind: opts.kind || 'trend', auto: !!opts.auto };
+  $('cbBack').textContent = playlist.kind === 'comp' ? 'Back to Clips' : 'Back to Trends';
+  setView('replays'); $('clipBar').hidden = false; playClip(0);
+}
+// compilations play as one reel: the next clip starts by itself
+function autoNext() {
+  if (!playlist || !playlist.auto || playlist.i >= playlist.clips.length - 1) return;
+  const next = playlist.i + 1;
+  setTimeout(() => { if (playlist && playlist.auto && !playing && playlist.i === next - 1) playClip(next); }, 700);
+}
 async function playClip(i) {
   if (!playlist) return;
   playlist.i = Math.max(0, Math.min(playlist.clips.length - 1, i));
@@ -1283,6 +1375,19 @@ async function playClip(i) {
   $('cbTitle').textContent = playlist.title; $('cbFacts').textContent = `${c.label} — ${c.facts}`;
   $('cbN').textContent = `${playlist.i + 1} of ${playlist.clips.length}`;
   $('cbPrev').disabled = playlist.i === 0; $('cbNext').disabled = playlist.i === playlist.clips.length - 1;
+  if (c.clipId) {   // a saved clip (compilations)
+    let cm = clipCache.get(c.clipId);
+    if (!cm) {
+      setSync('warn', 'Loading clip…');
+      try { const r = await api('replay', 'clipData', c.clipId); cm = JSON.parse(r.data); clipCache.set(c.clipId, cm); setSync('ok', 'Connected to Career Mode'); }
+      catch (e) { setSync('bad', 'Clip not loaded: ' + e.message); return; }
+    }
+    if (!playlist) return;
+    boot(cm); $('resumeBtn').hidden = true;
+    showBanner(esc(c.label), '#ffd23f');
+    seek(0); stopAt = DUR; setPlaying(true);
+    return;
+  }
   if (!M || M.id !== c.id) { setSync('warn', 'Loading clip…'); try { await loadMatchById(c.id); setSync('ok', 'Connected to Career Mode'); } catch (e) { setSync('bad', 'Clip not loaded: ' + e.message); return; } }
   $('resumeBtn').hidden = true;
   seek(c.t - LEAD); stopAt = c.t + 2; setPlaying(true);
@@ -1290,14 +1395,170 @@ async function playClip(i) {
 $('cbPrev').onclick = () => playClip(playlist.i - 1);
 $('cbNext').onclick = () => playClip(playlist.i + 1);
 $('cbReplay').onclick = () => playClip(playlist.i);
-$('cbBack').onclick = () => { playlist = null; $('clipBar').hidden = true; showTrends(); };
+$('cbBack').onclick = () => { const k = playlist && playlist.kind; playlist = null; $('clipBar').hidden = true; if (k === 'comp') showClips(); else showTrends(); };
+
+// ================= reference games =================
+function pickFollow(match, name) {
+  return new Promise(res => {
+    const dlg = $('followDlg'), box = $('followList'), last = String(store.get('replaylab:follow', '')).toLowerCase();
+    let done = false; const finish = v => { if (done) return; done = true; if (dlg.open) dlg.close(); res(v); };
+    $('followFile').textContent = name || 'this replay';
+    box.innerHTML = '';
+    match.players.forEach((p, k) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (p.name.toLowerCase() === last ? ' primary' : '');
+      b.textContent = `${short(p.name)} (${p.team ? 'orange' : 'blue'})`;
+      b.onclick = () => { store.set('replaylab:follow', p.name); finish(k); };
+      box.appendChild(b);
+    });
+    $('followCancel').onclick = () => finish(null);
+    dlg.oncancel = () => finish(null);
+    dlg.showModal();
+  });
+}
+function refInfo(match, name, follow) {
+  const d = match.meta, pl = match.players, ft = pl[follow].team;
+  const a = ft === 0 ? d.Team0Score : d.Team1Score, b = ft === 0 ? d.Team1Score : d.Team0Score;
+  const side = tm => pl.filter(p => p.team === tm).map(p => short(p.name)).join(', ');
+  return { id: match.id, date: (d.Date || '').split(' ')[0], mode: `${d.TeamSize}v${d.TeamSize}`, players: `${side(ft)} vs ${side(1 - ft)}`,
+    follow: pl[follow].name, result: `${a > b ? 'W' : a < b ? 'L' : 'T'} ${a}-${b}`, originalName: name || '' };
+}
+async function saveRef(match, bytes, name, follow) {
+  if (!backend.lib) return 'local';
+  const info = refInfo(match, name, follow);
+  if ((backend.refs || []).some(r => r.id === match.id)) return 'already';
+  await api('replay', 'refAdd', Object.assign({ b64: bytesToB64(bytes) }, info));
+  backend.refs = (backend.refs || []).concat([info]);
+  renderRefs();
+  return 'uploaded';
+}
+async function openRef(id) {
+  setView('replays'); setPlaying(false);
+  $('start').hidden = false; $('startMsg').textContent = 'Getting the reference game from Google Drive…';
+  try {
+    const f = await api('replay', 'refFile', id);
+    const match = await parseReplay(b64ToBytes(f.b64));
+    let k = match.players.findIndex(p => p.name === f.follow); if (k < 0) k = 0;
+    match.ref = true; match.follow = k;
+    $('startMsg').textContent = '';
+    boot(match); curBytes = null; curName = f.name;
+  } catch (e) { $('startMsg').innerHTML = `<span class="err">Couldn't open it (${esc(e.message)}).</span>`; }
+}
+function renderRefs() {
+  const refs = backend.refs || [];
+  $('refWrap').hidden = !backend.lib && !refs.length;
+  $('refTitle').textContent = `Reference games (${refs.length})`;
+  const box = $('refList'); box.innerHTML = '';
+  refs.slice().sort((x, y) => String(y.date).localeCompare(String(x.date))).forEach(r => {
+    const row = document.createElement('div'); row.className = 'rec';
+    row.innerHTML = `<button class="open" type="button"><b>${esc(r.date)} · ${esc(r.mode)} · ${esc(r.players)}${r.originalName ? `<small class="fname">${esc(r.originalName)}</small>` : ''}</b><span>${esc(short(r.follow))}'s view · ${esc(r.result)}</span></button><button class="rm" type="button" aria-label="Remove this reference game" title="Remove">×</button>`;
+    row.querySelector('.open').onclick = () => openRef(r.id);
+    const rm = row.querySelector('.rm');
+    rm.onclick = async () => {
+      if (!rm.dataset.armed) { rm.dataset.armed = '1'; rm.textContent = 'Remove?'; rm.style.color = 'var(--pink)'; setTimeout(() => { if (rm.isConnected) { delete rm.dataset.armed; rm.textContent = '×'; rm.style.color = ''; } }, 4000); return; }
+      rm.textContent = '…';
+      try { await api('replay', 'refRemove', r.id); backend.refs = backend.refs.filter(x => x.id !== r.id); toast('Removed (the file is in Drive trash for 30 days)'); }
+      catch (e) { toast('Could not remove: ' + e.message); }
+      renderRefs();
+    };
+    box.appendChild(row);
+  });
+}
+function showRefs() {
+  setView('replays'); setPlaying(false);
+  $('start').hidden = false; $('startMsg').textContent = '';
+  renderRecent();
+  $('refWrap').hidden = false;
+  $('refWrap').scrollIntoView({ block: 'start' });
+}
+
+// ================= clips + compilations =================
+let clipsData = null; const clipsState = { filter: '', open: null }; const clipCache = new Map();
+const unknownHint = e => /Unknown replay action/.test(e.message) ? ' The Apps Script needs the latest Replay.gs.' : '';
+async function ensureClips(force) { if (!clipsData || force) clipsData = await api('replay', 'clips'); return clipsData; }
+function drawClips(keepFocus) { if (!clipsData) return; clipsState.focusFilter = !!keepFocus; renderClips($('clipsView'), clipsData, clipsState, clipActs); }
+async function showClips() {
+  setView('clips');
+  const box = $('clipsView');
+  if (!backend.ok && connecting) { box.innerHTML = '<p class="empty">Connecting to Career Mode…</p>'; await connecting; }
+  if (!backend.lib) { box.innerHTML = '<p class="empty">Clips need the Career Mode connection. Enter the family code on the Replays screen, then try again.</p>'; return; }
+  box.innerHTML = '<p class="empty">Loading clips…</p>';
+  try { await ensureClips(true); drawClips(); }
+  catch (e) { box.innerHTML = `<p class="empty err">Couldn't load clips (${esc(e.message)}).${unknownHint(e)}</p>`; }
+}
+const compById = id => (clipsData.comps || []).find(c => c.id === id);
+const clipById = id => (clipsData.clips || []).find(c => c.id === id);
+async function saveComp(c) { try { await api('replay', 'compSave', c); } catch (e) { toast('Not saved: ' + e.message); } }
+function clipItem(c) { return { clipId: c.id, label: c.title, facts: `${c.source === 'ref' ? short(c.follow) + ' (reference)' : 'West'} · ${c.match || ''}` }; }
+const clipActs = {
+  redraw: keep => drawClips(keep),
+  async newComp(title) {
+    try { const r = await api('replay', 'compSave', { title, clipIds: [] }); clipsData.comps.push({ id: r.id, title, clipIds: [], notes: '' }); clipsState.open = r.id; drawClips(); }
+    catch (e) { toast('Not saved: ' + e.message); }
+  },
+  toggleComp(id) { clipsState.open = clipsState.open === id ? null : id; drawClips(); },
+  async renameComp(id, title) { const c = compById(id); if (!c || !title) return; c.title = title; drawClips(); await saveComp(c); },
+  async moveClip(id, k, d) {
+    const c = compById(id); if (!c) return;
+    const ids = c.clipIds.filter(x => clipById(x)), j = k + d; if (j < 0 || j >= ids.length) return;
+    [ids[k], ids[j]] = [ids[j], ids[k]]; c.clipIds = ids; drawClips(); await saveComp(c);
+  },
+  async dropClip(id, k) { const c = compById(id); if (!c) return; const ids = c.clipIds.filter(x => clipById(x)); ids.splice(k, 1); c.clipIds = ids; drawClips(); await saveComp(c); },
+  async removeComp(id) {
+    const c = compById(id); if (!c || !confirm(`Delete the compilation "${c.title}"? The clips themselves stay.`)) return;
+    try { await api('replay', 'compRemove', id); clipsData.comps = clipsData.comps.filter(x => x.id !== id); clipsState.open = null; drawClips(); } catch (e) { toast('Not deleted: ' + e.message); }
+  },
+  async addTo(compId, clipId) { const c = compById(compId); if (!c) return; c.clipIds = c.clipIds.concat([clipId]); toast(`Added to ${c.title}`); drawClips(); await saveComp(c); },
+  playComp(id) { const c = compById(id); if (!c) return; const items = c.clipIds.map(clipById).filter(Boolean).map(clipItem); if (items.length) startPlaylist(c.title, items, { kind: 'comp', auto: true }); },
+  playClip(id) { const c = clipById(id); if (c) startPlaylist(c.title, [clipItem(c)], { kind: 'comp', auto: false }); },
+  async removeClip(id) {
+    const c = clipById(id); if (!c || !confirm(`Delete the clip "${c.title}"?`)) return;
+    try { await api('replay', 'clipRemove', id); clipsData.clips = clipsData.clips.filter(x => x.id !== id); clipsData.comps.forEach(k => { k.clipIds = k.clipIds.filter(x => x !== id); }); drawClips(); }
+    catch (e) { toast('Not deleted: ' + e.message); }
+  },
+};
+// saving a clip from the game that's open
+function matchLabel() {
+  const d = M.meta, mt = P[ME].team;
+  return `${short(P[ME].name)} vs ${P.filter(p => p.team !== mt).map(p => short(p.name)).join(', ')} · ${(d.Date || '').split(' ')[0]}`;
+}
+async function openClipDlg() {
+  if (!M || isClip) return;
+  setPlaying(false);
+  $('clipTitle').value = ''; $('clipTags').value = ''; $('clipBefore').value = 5; $('clipAfter').value = 2;
+  $('clipWhen').textContent = `At game clock ${fmt(M.clock[frameAt(t)])} · ${isRef ? short(P[ME].name) + '\'s view (reference game)' : 'West\'s game'}`;
+  const sel = $('clipComp'), fill = () => { sel.innerHTML = '<option value="">No compilation</option>' + ((clipsData && clipsData.comps) || []).map(c => `<option value="${esc(c.id)}">${esc(c.title)}</option>`).join(''); };
+  fill();
+  $('clipDlg').showModal(); $('clipTitle').focus();
+  if (!clipsData && backend.lib) { try { await ensureClips(); fill(); } catch (e) {} }
+}
+$('clipBtn').onclick = openClipDlg;
+$('clipCancel').onclick = () => $('clipDlg').close();
+$('clipForm').onsubmit = async e => {
+  e.preventDefault();
+  const title = $('clipTitle').value.trim(); if (!title) return;
+  const before = Math.max(0, Math.min(30, Number($('clipBefore').value) || 0)), after = Math.max(0, Math.min(30, Number($('clipAfter').value) || 0));
+  const key = t, start = Math.max(0, key - before), end = Math.min(DUR, key + after);
+  const clip = cutClip(M, start, end, ME); clip.source = isRef ? 'ref' : 'game'; clip.title = title;
+  const meta = { title, tags: $('clipTags').value.trim(), source: clip.source, replayId: M.id, follow: P[ME].name, start: +start.toFixed(2), end: +end.toFixed(2), key: +key.toFixed(2), match: matchLabel() };
+  const compId = $('clipComp').value;
+  $('clipDlg').close();
+  if (!backend.lib) { toast('Clips need the Career Mode connection'); return; }
+  setSync('warn', 'Saving clip…');
+  try {
+    const r = await api('replay', 'clipAdd', Object.assign({ data: JSON.stringify(clip) }, meta));
+    clipCache.set(r.id, clip);
+    if (clipsData) clipsData.clips.push(Object.assign({ id: r.id }, meta));
+    if (compId && clipsData) { const c = compById(compId); if (c) { c.clipIds = c.clipIds.concat([r.id]); await saveComp(c); } }
+    setSync('ok', 'Clip saved'); toast(compId ? 'Clip saved and added to the compilation' : 'Clip saved');
+  } catch (err) { setSync('bad', 'Clip not saved: ' + err.message + unknownHint(err)); }
+};
 
 // ================= start =================
 resize();
 requestAnimationFrame(render);
 renderRecent();
 const startHash = location.hash;
-if (/^#(trends|games|game=)/.test(startHash)) history.replaceState(null, '', location.pathname + location.search);
+if (/^#(trends|games|game=|clips|reference)/.test(startHash)) history.replaceState(null, '', location.pathname + location.search);
 initParser().then(async () => {
   // opened from Career Mode's Last Games: open that replay
   const gm = /^#game=([A-Za-z0-9_-]{6,64})$/.exec(startHash);
@@ -1308,6 +1569,8 @@ initParser().then(async () => {
 }).catch(e => { $('startMsg').innerHTML = `<span class="err">The replay reader didn't load (${esc(e.message || e)}). Refresh the page.</span>`; });
 connecting = connect();
 if (startHash === '#trends') showTrends();
+if (startHash === '#clips') showClips();
+if (startHash === '#reference') connecting.then(showRefs);
 if (!FAMILY) setTimeout(() => { if (!$('gate').open) $('gate').showModal(); }, 400);
 // test hook: lets automated tests open a replay without a file picker
 window.__replayLab = { openFile, showTrends, get state() { return { M, t, review, backend, playlist }; } };

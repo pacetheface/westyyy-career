@@ -12,6 +12,13 @@
  *   ReplayTags    one row per tag West makes while reviewing
  *   GameStats     one row per player per game: every number the data engine computes (columns grow with the engine)
  *   Moments       one row per moment (kickoff, 50/50, turnover, clear, ball got past, goal, shot, save, demo...) with facts
+ *   RefReplays    reference games (pros, other players): never counted in West's games, Trends or Career Mode
+ *   Clips         saved clips: a few seconds cut out of a game, stored as a small file in the Clips folder
+ *   Compilations  ordered lists of clips that play as one reel
+ *
+ * Google Drive (created on first use):
+ *   "Westyyy Replay Lab - Reference"   reference .replay files
+ *   "Westyyy Replay Lab - Clips"       clip files (.json)
  *
  * After adding or changing this file: run authorizeReplayLab once from the editor, then
  * Deploy > Manage deployments > Edit > New version.
@@ -25,6 +32,10 @@ const GAME_HEAD = ['Replay ID', 'Match date', 'Mode', 'Opponent', 'Result', 'Goa
 const BEAT_HEAD = ['Replay ID', 'Match date', 'Goal #', 'Goal clock', 'Beat clock', 'Seconds before goal', 'Distance to ball (m)', 'Distance to own goal (m)',
   'Boost', 'Speed', 'Jumped', 'Retreating', 'Scorer', 'Auto cause', 'Confirmed cause', 'Updated at'];
 const REPLAY_FOLDER = 'Westyyy Replay Lab';
+const REF_HEAD = ['Replay ID', 'Match date', 'Mode', 'Players', 'Follow player', 'Result', 'Drive file ID', 'File name', 'Size (KB)', 'Added at', 'Original file name'];
+const CLIP_HEAD = ['Clip ID', 'Title', 'Tags', 'Source', 'Replay ID', 'Follow player', 'Start (s)', 'End (s)', 'Key moment (s)', 'Match', 'Data file ID', 'Size (KB)', 'Created at'];
+const COMP_HEAD = ['Compilation ID', 'Title', 'Clip IDs', 'Notes', 'Updated at'];
+const MAX_CLIP_CHARS = 3 * 1024 * 1024;
 const MAX_REPLAY_BYTES = 15 * 1024 * 1024;
 
 // Run once from the editor so Google asks for Drive permission.
@@ -34,7 +45,9 @@ function authorizeReplayLab() {
 
 // ---------- entry point: Code.gs routes action "replay" here ----------
 function replayAction(name, ...args) {
-  const fns = { library: libGet_, add: libAdd_, file: libFile_, saveBeats: libSaveBeats_, remove: libRemove_, trends: libTrends_ };
+  const fns = { library: libGet_, add: libAdd_, file: libFile_, saveBeats: libSaveBeats_, remove: libRemove_, trends: libTrends_,
+    refAdd: refAdd_, refFile: refFile_, refRemove: refRemove_, refFollow: refFollow_,
+    clips: clipsGet_, clipAdd: clipAdd_, clipData: clipData_, clipUpdate: clipUpdate_, clipRemove: clipRemove_, compSave: compSave_, compRemove: compRemove_ };
   const fn = fns[name];
   if (!fn) throw new Error('Unknown replay action');
   return fn.apply(null, args);
@@ -67,7 +80,123 @@ function libGet_() {
     (beats[r[0]] = beats[r[0]] || []).push({ n: Number(r[2]), goalClock: Number(r[3]), beatClock: Number(r[4]), secsBefore: Number(r[5]), distBall: Number(r[6]), distGoal: Number(r[7]),
       boost: Number(r[8]), speed: Number(r[9]), jumped: r[10] === true || r[10] === 'TRUE', retreating: r[11] === true || r[11] === 'TRUE', scorer: r[12], auto: r[13], confirmed: r[14] });
   });
-  return { focus: prop_('FOCUS', null), replays, games, beats, reviews: readReplayTags_() };
+  return { focus: prop_('FOCUS', null), replays, games, beats, reviews: readReplayTags_(), refs: refList_() };
+}
+
+// ---------- reference games: other players' replays, kept apart from West's ----------
+function refList_() {
+  return readRows_('RefReplays', REF_HEAD).map(r => ({ id: r[0], date: fmtDate_(r[1]), mode: String(r[2]), players: String(r[3]), follow: String(r[4]), result: String(r[5]),
+    fileId: String(r[6]), name: String(r[7]), sizeKB: Number(r[8]) || 0, added: String(r[9]), originalName: String(r[10] || '') }));
+}
+// payload: { id, date, mode, players, follow, result, originalName, b64 }
+function refAdd_(p) {
+  if (!p) throw new Error('Missing replay'); checkId_(p.id);
+  const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
+  let out = null;
+  withLock_(() => {
+    const have = readRows_('RefReplays', REF_HEAD).find(r => r[0] === p.id);
+    if (have) { out = { fileId: have[6], existed: true }; return; }
+    if (!p.b64) throw new Error('Missing replay file');
+    const bytes = Utilities.base64Decode(String(p.b64));
+    if (bytes.length > MAX_REPLAY_BYTES) throw new Error('Replay file too large');
+    const name = clip(p.date + ' ' + p.mode + ' ' + p.players + '.replay', 120).replace(/[\\/:*?"<>|]/g, '-');
+    const file = subFolder_('REF_FOLDER_ID', REPLAY_FOLDER + ' - Reference').createFile(Utilities.newBlob(bytes, 'application/octet-stream', name));
+    appendRows_(sheet_('RefReplays', REF_HEAD), [[p.id, clip(p.date, 10), clip(p.mode, 5), clip(p.players, 120), clip(p.follow, 40), clip(p.result, 12),
+      file.getId(), name, Math.round(bytes.length / 1024), new Date(), clip(p.originalName, 120)]], REF_HEAD.length);
+    out = { fileId: file.getId(), existed: false };
+  });
+  return out;
+}
+function refFile_(id) {
+  checkId_(id);
+  const r = readRows_('RefReplays', REF_HEAD).find(x => x[0] === id);
+  if (!r || !r[6]) throw new Error('Reference replay not found');
+  const f = DriveApp.getFileById(String(r[6]));
+  return { name: f.getName(), b64: Utilities.base64Encode(f.getBlob().getBytes()), follow: String(r[4]) };
+}
+function refFollow_(id, follow) {
+  checkId_(id);
+  withLock_(() => {
+    const sh = ss_().getSheetByName('RefReplays'); if (!sh) return;
+    const rows = readRows_('RefReplays', REF_HEAD), r = rows.find(x => x[0] === id); if (!r) return;
+    r[4] = String(follow || '').slice(0, 40); replaceRows_(sh, id, [r], REF_HEAD.length);
+  });
+  return true;
+}
+function refRemove_(id) {
+  checkId_(id);
+  withLock_(() => {
+    const r = readRows_('RefReplays', REF_HEAD).find(x => x[0] === id);
+    if (r && r[6]) { try { DriveApp.getFileById(String(r[6])).setTrashed(true); } catch (e) {} }
+    const sh = ss_().getSheetByName('RefReplays'); if (sh) replaceRows_(sh, id, [], REF_HEAD.length);
+  });
+  return true;
+}
+
+// ---------- clips and compilations ----------
+function clipsGet_() {
+  const clips = readRows_('Clips', CLIP_HEAD).map(r => ({ id: r[0], title: String(r[1]), tags: String(r[2]), source: String(r[3]), replayId: String(r[4]), follow: String(r[5]),
+    start: Number(r[6]) || 0, end: Number(r[7]) || 0, key: Number(r[8]) || 0, match: String(r[9]), sizeKB: Number(r[11]) || 0, created: String(r[12]) }));
+  const comps = readRows_('Compilations', COMP_HEAD).map(r => ({ id: r[0], title: String(r[1]), clipIds: String(r[2]).split(',').filter(Boolean), notes: String(r[3]), updated: String(r[4]) }));
+  return { clips, comps };
+}
+// payload: { title, tags, source, replayId, follow, start, end, key, match, data }  (data = the clip's frames as a JSON string)
+function clipAdd_(p) {
+  if (!p || typeof p.data !== 'string' || !p.data) throw new Error('Missing clip data');
+  if (p.data.length > MAX_CLIP_CHARS) throw new Error('Clip too long');
+  const clip = (s, n) => String(s == null ? '' : s).slice(0, n), num = x => Math.round((Number(x) || 0) * 100) / 100;
+  const id = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+  withLock_(() => {
+    const file = subFolder_('CLIP_FOLDER_ID', REPLAY_FOLDER + ' - Clips').createFile(Utilities.newBlob(p.data, 'application/json', id + '.json'));
+    appendRows_(sheet_('Clips', CLIP_HEAD), [[id, clip(p.title, 120) || 'Clip', clip(p.tags, 200), p.source === 'ref' ? 'ref' : 'game', clip(p.replayId, 64), clip(p.follow, 40),
+      num(p.start), num(p.end), num(p.key), clip(p.match, 160), file.getId(), Math.round(p.data.length / 1024), new Date()]], CLIP_HEAD.length);
+  });
+  return { id };
+}
+function clipData_(id) {
+  checkId_(id);
+  const r = readRows_('Clips', CLIP_HEAD).find(x => x[0] === id);
+  if (!r || !r[10]) throw new Error('Clip not found');
+  return { data: DriveApp.getFileById(String(r[10])).getBlob().getDataAsString() };
+}
+function clipUpdate_(id, u) {
+  checkId_(id);
+  withLock_(() => {
+    const sh = ss_().getSheetByName('Clips'); if (!sh) return;
+    const r = readRows_('Clips', CLIP_HEAD).find(x => x[0] === id); if (!r) return;
+    if (u && u.title !== undefined) r[1] = String(u.title).slice(0, 120) || 'Clip';
+    if (u && u.tags !== undefined) r[2] = String(u.tags).slice(0, 200);
+    replaceRows_(sh, id, [r], CLIP_HEAD.length);
+  });
+  return true;
+}
+function clipRemove_(id) {
+  checkId_(id);
+  withLock_(() => {
+    const r = readRows_('Clips', CLIP_HEAD).find(x => x[0] === id);
+    if (r && r[10]) { try { DriveApp.getFileById(String(r[10])).setTrashed(true); } catch (e) {} }
+    const sh = ss_().getSheetByName('Clips'); if (sh) replaceRows_(sh, id, [], CLIP_HEAD.length);
+    // take it out of every compilation
+    const cs = ss_().getSheetByName('Compilations');
+    if (cs) readRows_('Compilations', COMP_HEAD).forEach(c => {
+      const ids = String(c[2]).split(',').filter(Boolean);
+      if (ids.indexOf(id) >= 0) { c[2] = ids.filter(x => x !== id).join(','); c[4] = new Date(); replaceRows_(cs, c[0], [c], COMP_HEAD.length); }
+    });
+  });
+  return true;
+}
+// payload: { id (optional), title, clipIds, notes }
+function compSave_(c) {
+  if (!c) throw new Error('Missing compilation');
+  const id = c.id ? String(c.id) : Utilities.getUuid().replace(/-/g, '').slice(0, 16); checkId_(id);
+  const ids = (Array.isArray(c.clipIds) ? c.clipIds : []).map(String).filter(x => /^[A-Za-z0-9_-]{6,64}$/.test(x)).slice(0, 200);
+  withLock_(() => replaceRows_(sheet_('Compilations', COMP_HEAD), id, [[id, String(c.title || 'Compilation').slice(0, 120), ids.join(','), String(c.notes || '').slice(0, 500), new Date()]], COMP_HEAD.length));
+  return { id };
+}
+function compRemove_(id) {
+  checkId_(id);
+  withLock_(() => { const sh = ss_().getSheetByName('Compilations'); if (sh) replaceRows_(sh, id, [], COMP_HEAD.length); });
+  return true;
 }
 
 // payload: { game, beats, fileName, b64 }  (b64 optional when the file is already stored)
@@ -181,6 +310,13 @@ function replayFolder_() {
   if (id) { try { const f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (e) {} }
   const f = DriveApp.createFolder(REPLAY_FOLDER);
   P().setProperty('REPLAY_FOLDER_ID', f.getId());
+  return f;
+}
+function subFolder_(prop, name) {
+  const id = P().getProperty(prop);
+  if (id) { try { const f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (e) {} }
+  const f = DriveApp.createFolder(name);
+  P().setProperty(prop, f.getId());
   return f;
 }
 function beatRow_(g, b, now) {
