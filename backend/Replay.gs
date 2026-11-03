@@ -283,11 +283,15 @@ function libRemove_(id) {
 }
 
 // ---------- Trends page: everything it needs in one call ----------
-const TREND_TYPES = ['Kickoff approach', 'Goal'];
+const TREND_TYPES = ['Kickoff approach', 'Goal', 'First touch', 'First defender'];
 const TREND_COLS = ['Replay ID', 'Match date', 'Match time', 'Type', 'Game clock', 'Replay time (s)', 'Player', 'Team', 'Is West', 'West team', 'Outcome',
   'Other player', 'Spawn', 'Kickoff choice', 'Possession after', 'Kickoff goal', 'Flipped', 'Boost used', 'Ball in his half after 1s', 'Goal-side after 3s',
   'Got boost within 3s', 'Speed (km/h)', 'Boost', 'Attack started', 'Attack seconds', 'Attack touches', 'Shot distance (m)', 'Shot in the air',
-  'Defender goal-side', 'Defender distance to goal (m)', 'Defender boost', 'Shot speed (km/h)', 'Engine version'];
+  'Defender goal-side', 'Defender distance to goal (m)', 'Defender boost', 'Shot speed (km/h)', 'Engine version',
+  // 2v2 Trends (engine v4)
+  'Zone', 'Touch direction', 'Lined up', 'Facing their goal', 'Driving toward own goal', 'Surface', 'Touch context', 'Lost within 3s', 'Shot within 6s',
+  'Goal against within 10s', 'Challenge choice', 'Challenge result', 'Teammate behind', 'Start distance to ball (m)', 'West goal-side at shot',
+  'Teammate goal-side at shot', 'West in the air at shot', 'Last touch before (defending team)', 'That touch went', 'Seconds from that touch to goal'];
 function libTrends_() {
   const moments = readObjects_('Moments').filter(o => TREND_TYPES.indexOf(o.Type) >= 0).map(o => { const x = {}; TREND_COLS.forEach(k => { if (o[k] !== undefined && o[k] !== '') x[k] = o[k]; }); return x; });
   const stats = getStats_();

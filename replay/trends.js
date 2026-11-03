@@ -20,7 +20,7 @@ export function prepare(raw, mode = '1v1') {
   const games = (raw.games || []).filter(g => String(g.Mode) === mode).map(g => {
     const st = statsById[g['Replay ID']] || {};
     const time = String(st['Match time'] || g['Match date'] || '');
-    return { id: g['Replay ID'], date: String(g['Match date'] || '').slice(0, 10), time, result: String(g.Result || ''), goalsFor: Number(g['Goals for']) || 0, goalsAgainst: Number(g['Goals against']) || 0, opponent: String(g.Opponent || '') };
+    return { id: g['Replay ID'], date: String(g['Match date'] || '').slice(0, 10), time, result: String(g.Result || ''), goalsFor: Number(g['Goals for']) || 0, goalsAgainst: Number(g['Goals against']) || 0, opponent: String(g.Opponent || ''), engine: Number(st['Engine version']) || 0 };
   }).sort((a, b) => a.time.localeCompare(b.time));
   const ids = new Set(games.map(g => g.id));
   const moments = (raw.moments || []).filter(m => ids.has(m['Replay ID']));
@@ -44,6 +44,8 @@ const clockOf = v => {
 };
 const clipOf = m => ({ id: m['Replay ID'], t: Number(m['Replay time (s)']) || 0, label: `${m.Type} · ${clockOf(m['Game clock'])} · ${String(m['Match date'] || '').slice(0, 10)}`, facts: factsOf(m) });
 function factsOf(m) {
+  if (m.Type === 'First touch') return [short(m.Player), m.Zone, `went ${m['Touch direction']}`, yes(m['Lined up']) ? 'lined up' : 'not lined up', yes(m['Driving toward own goal']) ? 'driving toward own goal' : '', m.Boost !== undefined ? `${m.Boost} boost` : '', yes(m['Lost within 3s']) ? 'other team got it' : ''].filter(Boolean).join(' · ');
+  if (m.Type === 'First defender') return [short(m.Player), m['Challenge choice'] === 'Challenged' ? `challenged · ${m['Challenge result']}` : 'held', yes(m['Teammate behind']) ? 'teammate behind' : 'teammate not behind', yes(m['Goal against within 10s']) ? 'goal against within 10 s' : ''].filter(Boolean).join(' · ');
   if (m.Type === 'Kickoff approach') return [short(m.Player), m.Spawn, m['Kickoff choice'], m.Outcome && String(m.Outcome).split('·')[1], m['Kickoff goal'] ? `kickoff goal ${String(m['Kickoff goal']).toLowerCase()}` : '', yes(m.Flipped) ? 'flipped in' : ''].filter(Boolean).join(' · ');
   return [short(m.Player), m['Attack started'], m['Attack seconds'] !== undefined ? `${m['Attack seconds']} s` : '', m['Shot distance (m)'] !== undefined ? `shot from ${m['Shot distance (m)']} m` : '', yes(m['Shot in the air']) ? 'in the air' : 'on the ground', yes(m['Defender goal-side']) ? 'defender goal-side' : 'defender not goal-side'].filter(Boolean).join(' · ');
 }
@@ -160,6 +162,155 @@ function changes(data, allIds, recentIds, actions) {
     return `<li><span class="${better ? 'pos' : 'neg'}">${c.r > c.a ? '▲' : '▼'}</span> <b>${esc(c.label)}:</b> ${c.a}${c.unit} overall → <b>${c.r}${c.unit}</b> recently <button class="btn sm" type="button" data-clips="${key}">▶ clips</button></li>`; }).join('') + '</ul>';
 }
 
+// ---------- 2v2 ----------
+// Every table puts games West's team won next to games they lost, so the differences show.
+const MIN_ENGINE_2V2 = 4;   // first touch, first defender and goal-against positions need engine v4
+const num = v => (v === '' || v === undefined ? null : Number(v));
+const isW = m => yes(m['Is West']);
+function wlCols(data, ids) {
+  const res = Object.fromEntries(data.games.map(g => [g.id, g.result]));
+  const pick = r => new Set([...ids].filter(id => res[id] === r));
+  return [['Wins', pick('W')], ['Losses', pick('L')], ['All', ids]];
+}
+// items: [label, base(rows) → rows, hit(row) → bool | null, kind]   kind 'pct' = share of base · 'n' = count (with per game) · 'grp' = heading
+function wlTable(rowsOf, data, ids, items, actions, title, opts = {}) {
+  const cols = wlCols(data, ids).map(([name, s]) => ({ name, ids: s, rows: rowsOf(s) }));
+  let h = `<div class="tblwrap"><table class="rt wl"><thead><tr><th></th>${cols.map(c => `<th>${c.name} <span class="sub">(${c.ids.size} game${c.ids.size === 1 ? '' : 's'})</span></th>`).join('')}</tr></thead><tbody>`;
+  items.forEach(([label, base, hit, kind]) => {
+    if (kind === 'grp') { h += `<tr class="grp"><th colspan="${cols.length + 1}">${label}</th></tr>`; return; }
+    h += `<tr><th>${label}</th>` + cols.map(c => {
+      const b = base(c.rows), hits = hit ? b.filter(hit) : b;
+      if (kind === 'n') return cell(b, `<b>${b.length}</b><span class="sub">${c.ids.size ? Math.round(b.length / c.ids.size * 10) / 10 : 0} per game</span>`, actions, `${title} · ${label} · ${c.name}`);
+      const p = pct(hits.length, b.length);
+      if (b.length && !hits.length) return `<td class="z"><span class="tc-0"><b>0%</b><span class="sub">0 of ${b.length}</span></span></td>`;
+      return cell(hits, `<b>${fmtPct(p)}</b><span class="sub">${hits.length} of ${b.length}</span>`, actions, `${title} · ${label} · ${c.name}`);
+    }).join('') + '</tr>';
+  });
+  return h + `</tbody></table></div>${opts.note ? `<p class="note">${opts.note}</p>` : ''}`;
+}
+const all_ = r => r;
+function twosFirstTouch(data, ids, actions) {
+  const rowsOf = s => data.moments.filter(m => m.Type === 'First touch' && isW(m) && s.has(m['Replay ID']));
+  const dirIs = d => m => m['Touch direction'] === d, lined = m => yes(m['Lined up']), back = m => yes(m['Driving toward own goal']);
+  const fwd = dirIs('forward');
+  const items = [
+    ['First touches', all_, null, 'n'],
+    ['Where the ball went', null, null, 'grp'],
+    ['Forward (toward their goal)', all_, fwd, 'pct'], ['Sideways', all_, dirIs('sideways'), 'pct'], ['Backward', all_, dirIs('backward'), 'pct'], ['Soft touch (under 15 km/h)', all_, dirIs('soft'), 'pct'],
+    ['How he arrived', null, null, 'grp'],
+    ['Lined up behind the ball', all_, lined, 'pct'], ['Driving toward his own goal', all_, back, 'pct'], ['Boost 0–5', all_, m => num(m.Boost) !== null && num(m.Boost) <= 5, 'pct'],
+    ['Forward, by how he arrived', null, null, 'grp'],
+    ['When lined up', r => r.filter(lined), fwd, 'pct'], ['When not lined up', r => r.filter(m => !lined(m)), fwd, 'pct'],
+    ['When driving toward own goal', r => r.filter(back), fwd, 'pct'], ['When boost 0–5', r => r.filter(m => num(m.Boost) !== null && num(m.Boost) <= 5), fwd, 'pct'],
+    ['Forward, by where on the field', null, null, 'grp'],
+    ['Own third', r => r.filter(m => m.Zone === 'own third'), fwd, 'pct'], ['Middle third', r => r.filter(m => m.Zone === 'middle third'), fwd, 'pct'], ['Attacking third', r => r.filter(m => m.Zone === 'attacking third'), fwd, 'pct'],
+    ['What happened next', null, null, 'grp'],
+    ['Other team got the ball within 3 s', all_, m => yes(m['Lost within 3s']), 'pct'], ['His team shot within 6 s', all_, m => yes(m['Shot within 6s']), 'pct'],
+    ['Goal against within 10 s', all_, m => yes(m['Goal against within 10s']), 'pct'],
+  ];
+  return `<section class="rep"><h2>First touch</h2><p class="lede">Every time West touches the ball first: after the other team had it, or after 2 seconds with no touch from his team. Lined up = his car was behind the ball, within 60° of the line to their goal.</p>
+    ${wlTable(rowsOf, data, ids, items, actions, 'First touch', { note: 'Click any number to watch those touches.' })}</section>`;
+}
+function twosKickoffs(data, ids, actions) {
+  // one entry per kickoff: West's row plus his teammate's row from the same kickoff
+  const rowsOf = s => {
+    const ko = data.moments.filter(m => m.Type === 'Kickoff approach' && yes(m['West team']) && s.has(m['Replay ID']));
+    const by = {}; ko.forEach(m => { const k = m['Replay ID'] + '@' + m['Replay time (s)']; (by[k] = by[k] || []).push(m); });
+    return Object.values(by).map(g => { const w = g.find(isW), o = g.find(m => !isW(m)); if (!w) return null;
+      const wg = w['Kickoff choice'] === 'Went for it', og = o && o['Kickoff choice'] === 'Went for it';
+      return Object.assign({}, w, { who: wg && og ? 'Both went' : wg ? 'West went' : og ? 'Teammate went' : 'Neither went' }); }).filter(Boolean);
+  };
+  const got = m => m['Possession after'] === 'His team', who = w => r => r.filter(m => m.who === w);
+  const items = [
+    ['Kickoffs', all_, null, 'n'],
+    ['His team got the ball next', all_, got, 'pct'], ['Kickoff goal for', all_, m => m['Kickoff goal'] === 'For', 'pct'], ['Kickoff goal against', all_, m => m['Kickoff goal'] === 'Against', 'pct'],
+    ['Who went for the ball', null, null, 'grp'],
+    ...['West went', 'Teammate went', 'Both went', 'Neither went'].map(w => [w, all_, m => m.who === w, 'pct']),
+    ['His team got the ball next, by who went', null, null, 'grp'],
+    ...['West went', 'Teammate went', 'Both went'].map(w => [w, who(w), got, 'pct']),
+    ['When West went: his approach', null, null, 'grp'],
+    ['Flipped into the ball', r => r.filter(m => m['Kickoff choice'] === 'Went for it'), m => yes(m.Flipped), 'pct'],
+    ['His team got the ball, flipped in', r => r.filter(m => m['Kickoff choice'] === 'Went for it' && yes(m.Flipped)), got, 'pct'],
+    ['His team got the ball, did not flip', r => r.filter(m => m['Kickoff choice'] === 'Went for it' && !yes(m.Flipped)), got, 'pct'],
+  ];
+  return `<section class="rep"><h2>Kickoffs</h2><p class="lede">Who went for the ball on each kickoff (West, his teammate or both), and which team got the ball next.</p>${wlTable(rowsOf, data, ids, items, actions, 'Kickoffs')}</section>`;
+}
+function twosChallenges(data, ids, actions) {
+  const rowsOf = s => data.moments.filter(m => m.Type === 'First defender' && isW(m) && s.has(m['Replay ID']));
+  const ch = m => m['Challenge choice'] === 'Challenged', cov = m => yes(m['Teammate behind']), ga = m => yes(m['Goal against within 10s']);
+  const res = r => m => m['Challenge result'] === r;
+  const items = [
+    ['Times West was first defender', all_, null, 'n'],
+    ['Went at the ball (challenged)', all_, ch, 'pct'], ['Held (waited)', all_, m => !ch(m), 'pct'],
+    ['When he challenged', null, null, 'grp'],
+    ['Teammate was behind him', r => r.filter(ch), cov, 'pct'], ['Won the ball', r => r.filter(ch), res('won the ball'), 'pct'], ['50/50', r => r.filter(ch), res('50/50'), 'pct'], ['Missed the ball', r => r.filter(ch), res('missed the ball'), 'pct'],
+    ['Goal against within 10 s', null, null, 'grp'],
+    ['Challenged, teammate behind', r => r.filter(m => ch(m) && cov(m)), ga, 'pct'], ['Challenged, teammate not behind', r => r.filter(m => ch(m) && !cov(m)), ga, 'pct'],
+    ['Held, teammate behind', r => r.filter(m => !ch(m) && cov(m)), ga, 'pct'], ['Held, teammate not behind', r => r.filter(m => !ch(m) && !cov(m)), ga, 'pct'],
+  ];
+  return `<section class="rep"><h2>Challenges</h2><p class="lede">Times the other team had the ball in their half and West was his team's closest player, goal-side, 5–30 m away. Did he go at the ball or hold, where was his teammate, and what followed. Missed the ball = he went for it and didn't touch it.</p>
+    ${wlTable(rowsOf, data, ids, items, actions, 'Challenges')}</section>`;
+}
+function twosGoals(data, ids, allScope, showRecent, actions) {
+  const rowsOf = s => data.moments.filter(m => m.Type === 'Goal' && !yes(m['West team']) && s.has(m['Replay ID']) && m['West goal-side at shot'] !== undefined);
+  const wgs = m => yes(m['West goal-side at shot']), mgs = m => yes(m['Teammate goal-side at shot']), last = m => m['Last touch before (defending team)'];
+  const items = [
+    ['Goals against', all_, null, 'n'],
+    ['Where West and his teammate were at the shot', null, null, 'grp'],
+    ['Both goal-side', all_, m => wgs(m) && mgs(m), 'pct'], ['Only West goal-side', all_, m => wgs(m) && !mgs(m), 'pct'], ['Only teammate goal-side', all_, m => !wgs(m) && mgs(m), 'pct'], ['Neither goal-side', all_, m => !wgs(m) && !mgs(m), 'pct'],
+    ['West in the air at the shot', all_, m => yes(m['West in the air at shot']), 'pct'],
+    ["His team's last touch before the goal", null, null, 'grp'],
+    ['By West', all_, m => !!last(m) && /westyyy/i.test(last(m)), 'pct'], ['By his teammate', all_, m => !!last(m) && !/westyyy/i.test(last(m)), 'pct'], ['No touch by his team', all_, m => !last(m), 'pct'],
+    ['That touch went', null, null, 'grp'],
+    ...['forward', 'sideways', 'backward', 'soft'].map(d => [d[0].toUpperCase() + d.slice(1), r => r.filter(last), m => m['That touch went'] === d, 'pct']),
+  ];
+  return `<section class="rep"><h2>Goals against: where everyone was</h2><p class="lede">For each goal against: whether West and his teammate were between the ball and their goal when the shot was hit, and who on his team touched the ball last before it.</p>
+    ${wlTable(rowsOf, data, ids, items, actions, 'Goals against')}</section>` + goalReport(data, allScope, null, showRecent, actions).replace('<h2>Goals</h2>', '<h2>Goals for and against</h2>').replace('How West scores, next to how opponents score on him.', "How West's team scores, next to how opponents score.").replace('West scores <span', "West's team scores <span");
+}
+function twosTimeline(data, actions) {
+  const per = f => data.games.map(g => { const r = data.moments.filter(m => m.Type === 'First touch' && isW(m) && m['Replay ID'] === g.id); return r.length >= 5 ? pct(r.filter(f).length, r.length) : null; });
+  const fwd = per(m => m['Touch direction'] === 'forward'), lined = per(m => yes(m['Lined up']));
+  const ko = data.games.map(g => { const r = data.moments.filter(m => m.Type === 'Kickoff approach' && isW(m) && m['Replay ID'] === g.id); return r.length ? pct(r.filter(m => m['Possession after'] === 'His team').length, r.length) : null; });
+  return `<section class="rep"><h2>Game by game</h2><h3>First touch: forward and lined up</h3>${timeline(data.games, [{ vals: fwd, color: 'var(--mint)' }, { vals: lined, color: 'var(--blue)' }], mmrForGames(data.games, data.mmr), { unit: '%', ymax: 100, label: 'First touch by game' })}
+    <p class="note"><span style="color:var(--mint)">●</span> first touches forward · <span style="color:var(--blue)">●</span> lined up · filled = won, hollow = lost · lines: 5-game average · grey line: 2v2 MMR.</p>
+    <h3>His team got the ball after kickoffs</h3>${timeline(data.games, [{ vals: ko, color: 'var(--gold)' }], null, { unit: '%', ymax: 100, label: 'Kickoff possession by game' })}</section>`;
+}
+function twosChanges(data, allIds, recentIds, actions) {
+  const FT = ids => data.moments.filter(m => m.Type === 'First touch' && isW(m) && ids.has(m['Replay ID'])), FD = ids => data.moments.filter(m => m.Type === 'First defender' && isW(m) && ids.has(m['Replay ID']));
+  const K = ids => kickoffRows(data, ids), G = ids => data.games.filter(x => ids.has(x.id));
+  const share = (rowsFn, test, min = 30) => ids => { const r = rowsFn(ids); return r.length >= min ? pct(r.filter(test).length, r.length) : null; };
+  const metrics = [
+    { label: 'First touches forward', unit: '%', calc: share(FT, m => m['Touch direction'] === 'forward'), clips: ids => FT(ids).filter(m => m['Touch direction'] !== 'forward') },
+    { label: 'Lined up at the first touch', unit: '%', calc: share(FT, m => yes(m['Lined up'])), clips: ids => FT(ids).filter(m => !yes(m['Lined up'])) },
+    { label: 'First touch with boost 0–5', unit: '%', calc: share(FT, m => num(m.Boost) <= 5), clips: ids => FT(ids).filter(m => num(m.Boost) <= 5), lowerBetter: true },
+    { label: 'Other team got it within 3 s of his first touch', unit: '%', calc: share(FT, m => yes(m['Lost within 3s'])), clips: ids => FT(ids).filter(m => yes(m['Lost within 3s'])), lowerBetter: true },
+    { label: 'Challenged with teammate not behind', unit: '%', calc: share(FD, m => m['Challenge choice'] === 'Challenged' && !yes(m['Teammate behind']), 15), clips: ids => FD(ids).filter(m => m['Challenge choice'] === 'Challenged' && !yes(m['Teammate behind'])), lowerBetter: true },
+    { label: 'His team got the ball after kickoffs', unit: '%', calc: share(K, m => m['Possession after'] === 'His team', 15), clips: ids => K(ids).filter(m => m['Possession after'] !== 'His team') },
+    { label: 'Goals for per game', unit: '', calc: ids => { const g = G(ids); return g.length >= 5 ? Math.round(g.reduce((a, x) => a + x.goalsFor, 0) / g.length * 10) / 10 : null; }, clips: ids => goalRows(data, ids).filter(m => yes(m['West team'])) },
+    { label: 'Goals against per game', unit: '', calc: ids => { const g = G(ids); return g.length >= 5 ? Math.round(g.reduce((a, x) => a + x.goalsAgainst, 0) / g.length * 10) / 10 : null; }, clips: ids => goalRows(data, ids).filter(m => !yes(m['West team'])), lowerBetter: true },
+  ];
+  const out = metrics.map(mt => { const a = mt.calc(allIds), r = mt.calc(recentIds); return a === null || r === null ? null : { ...mt, a, r, rel: Math.abs(r - a) / Math.max(1, Math.abs(a)) }; }).filter(x => x && x.r !== x.a).sort((x, y) => y.rel - x.rel).slice(0, 4);
+  if (!out.length) return '<p class="empty">No clear changes between recent games and all games yet.</p>';
+  return '<ul class="chg">' + out.map(c => { const better = c.lowerBetter ? c.r < c.a : c.r > c.a, key = actions.register(c.clips(recentIds).map(clipOf), c.label + ' (recent)');
+    return `<li><span class="${better ? 'pos' : 'neg'}">${c.r > c.a ? '▲' : '▼'}</span> <b>${esc(c.label)}:</b> ${c.a}${c.unit} overall → <b>${c.r}${c.unit}</b> recently <button class="btn sm" type="button" data-clips="${key}">▶ clips</button></li>`; }).join('') + '</ul>';
+}
+function twos(data, allIds, recentIds, showRecent, enough, actions) {
+  const ids = showRecent && recentIds ? recentIds : allIds;
+  const fresh = new Set(data.games.filter(g => g.engine >= MIN_ENGINE_2V2).map(g => g.id)), freshIds = new Set([...ids].filter(id => fresh.has(id)));
+  const old = data.games.length - fresh.size;
+  let h = '';
+  if (old) h += `<div class="gate">${old} of ${data.games.length} games were analysed before first touches and challenges were added, so First touch, Challenges and Goals against use the other ${fresh.size}. Opening a game in Replays updates it.</div>`;
+  h += enough ? `<section class="rep"><h2>What's changing</h2>${twosChanges(data, allIds, recentIds, actions)}</section>`
+    : `<div class="gate">Comparisons of recent games start after ${MIN_GAMES_FOR_TRENDS} games (${data.games.length} so far). Showing all games.</div>`;
+  h += `<p class="lede">Each table puts games his team won next to games they lost. ${showRecent ? 'Showing recent games only.' : ''}</p>`;
+  h += twosFirstTouch(data, freshIds, actions);
+  h += twosKickoffs(data, ids, actions);
+  h += twosChallenges(data, freshIds, actions);
+  h += twosGoals(data, freshIds, ids, showRecent, actions);
+  h += twosTimeline(data, actions);
+  return h;
+}
+
 // ---------- page ----------
 export function renderTrends(root, raw, state, actions) {
   const data = prepare(raw, state.mode);
@@ -170,15 +321,20 @@ export function renderTrends(root, raw, state, actions) {
   actions.reset();
   let h = `<div class="tr-head"><div><h1>Trends</h1><p class="lede">${n} ${state.mode} game${n === 1 ? '' : 's'} analysed${data.games.length ? ` · ${esc(data.games[0].date)} to ${esc(data.games[n - 1].date)}` : ''}</p></div>
     <div class="tr-filters">
-      <label>Mode <select id="trMode"><option value="1v1"${state.mode === '1v1' ? ' selected' : ''}>1v1</option><option value="2v2" disabled>2v2 (coming soon)</option></select></label>
+      <label>Mode <select id="trMode"><option value="1v1"${state.mode === '1v1' ? ' selected' : ''}>1v1</option><option value="2v2"${state.mode === '2v2' ? ' selected' : ''}>2v2</option></select></label>
       <label>Recent means <select id="trRecent"${enough ? '' : ' disabled'}>${[['last5', 'Last 5 games'], ['last10', 'Last 10 games'], ['last20', 'Last 20 games'], ['focus', 'Since the current focus']].map(([v, t]) => `<option value="${v}"${state.recent === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
       <div class="seg" role="group" aria-label="Show"><button type="button" id="trAll" aria-pressed="${!showRecent}">All games</button><button type="button" id="trRec" aria-pressed="${showRecent}"${enough ? '' : ' disabled'}>Recent</button></div>
     </div></div>`;
-  if (!n) { root.innerHTML = h + '<p class="empty">No games yet. Open replays in Replays and they show up here.</p>'; return; }
-  h += enough ? `<section class="rep"><h2>What's changing</h2>${changes(data, allIds, recentIds, actions)}</section>`
-    : `<div class="gate">Comparisons of recent games start after ${MIN_GAMES_FOR_TRENDS} games (${n} so far). Showing all games.</div>`;
-  h += kickoffReport(data, allIds, recentIds, showRecent, actions);
-  h += goalReport(data, allIds, recentIds, showRecent, actions);
+  if (!n) h += `<p class="empty">No ${state.mode} games yet. Open replays in Replays and they show up here.</p>`;
+  else {
+  if (state.mode === '2v2') h += twos(data, allIds, recentIds, showRecent, enough, actions);
+  else {
+    h += enough ? `<section class="rep"><h2>What's changing</h2>${changes(data, allIds, recentIds, actions)}</section>`
+      : `<div class="gate">Comparisons of recent games start after ${MIN_GAMES_FOR_TRENDS} games (${n} so far). Showing all games.</div>`;
+    h += kickoffReport(data, allIds, recentIds, showRecent, actions);
+    h += goalReport(data, allIds, recentIds, showRecent, actions);
+  }
+  }
   root.innerHTML = h;
   root.querySelectorAll('[data-clips]').forEach(b => b.onclick = () => actions.play(b.dataset.clips));
   const q = id => root.querySelector('#' + id);
