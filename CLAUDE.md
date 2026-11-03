@@ -36,9 +36,9 @@ Read this first, then `docs/replay-lab-notes.md` for findings, definitions and o
 | File | Role |
 |---|---|
 | `core.js` | `parseReplay(bytes)`: subtr-actor WASM → compact match (t, clock, ball, ballVel, players with track/vel/boost/boosting/act bitmask 1 jump · 2 double jump · 4 dodge, touches, pickups, demos, moments) |
-| `moments.js` | Data engine (`ENGINE_VERSION = 3`): neutral per-player moments + numbers; `buildData(M)`, `toTables(M, D, westIdx, info)` |
-| `analysis.js` | Game stats + beat moments; `ANALYSIS_VERSION = 100 + ENGINE_VERSION` (103) |
-| `trends.js` | Trends view: Kickoffs + Goals reports (1v1), timeline with 5-game average and MMR, "What's changing" (switches on at 15 games, `MIN_GAMES_FOR_TRENDS`) |
+| `moments.js` | Data engine (`ENGINE_VERSION = 4`; v4 adds First touch, First defender, goal-against positions): neutral per-player moments + numbers; `buildData(M)`, `toTables(M, D, westIdx, info)` |
+| `analysis.js` | Game stats + beat moments; `ANALYSIS_VERSION = 100 + ENGINE_VERSION` (104) |
+| `trends.js` | Trends view. 1v1: Kickoffs + Goals reports. 2v2: First touch, Kickoffs (who went), Challenges, Goals against positions, Goals, game-by-game; every table Wins vs Losses; timeline with 5-game average and MMR, "What's changing" (switches on at 15 games, `MIN_GAMES_FOR_TRENDS`) |
 | `clips.js` | `cutClip(M, start, end, follow)` cuts a stand-alone mini match (saved as JSON in Drive, plays without the original replay); `renderClips()` draws the Clips view |
 | `index.html` | Viewer (three.js 0.160.0 via importmap from jsdelivr), library, tags, batch import, clip player, Replays/Trends switch |
 | `vendor/subtr-actor/` | subtr-actor 1.4.0 WASM (MIT); `parse_replay` also gives raw network frames (used for DodgeTorque) |
@@ -59,7 +59,8 @@ Read this first, then `docs/replay-lab-notes.md` for findings, definitions and o
 - Hash routes: `#games`, `#trends`, `#clips`, `#reference`, `#game=<id>`.
 
 ## Status (2026-10-30)
-- Built (PR after #13): sidebar in both pages; reference games, saved clips, compilations that play as one reel.
+- Merged: sidebar in both pages (#13); reference games, saved clips, compilations (#14).
+- Built (PR after #14): 2v2 Trends + engine v4. Older games need recalculating once (batch via the browser pane) to fill the new 2v2 facts.
 - Merged and live: Trends (Kickoffs, Goals, clip player), clock fix, connection-wait fix, 10-second car trails, rocket-car favicon.
 - Analysis only, **not built** (Ryan not ready): kickoff jump timing and car height, flip type and direction, dives, challenge-or-hold.
 - Next per Ryan and Claude's agreed order: (1) get replays uploading automatically from West's PC, (2) this handoff, (3) design (not code) a sidebar layout, (4) decide what goes in Trends, (5) build.

@@ -71,6 +71,23 @@ Times in this section are Replay Lab timeline times (counting up), not scoreboar
 - Caveat: holding back isn't always a choice (sometimes he's too far or too slow), so this flatters challenging.
 - Twos: only 3 plays in 1 game, so no conclusion. Ryan's cue is mostly in twos (West dives, the teammate is left on a 2-on-1). This needs 10–15 twos replays and a teammate-distance check.
 
+## 2v2 Trends (engine v4, built)
+Definitions used by the engine (`moments.js`) and the 2v2 Trends page (`trends.js`):
+- **First touch**: a player's touch after the other team had the ball, or after 2 s with no touch from his own team. Kickoff touches excluded.
+  - Direction: where the ball goes over the next 0.15 s, against the line to the opponents' goal. Forward under 60°, sideways 60-120°, backward over 120°, soft under 15 km/h.
+  - Lined up: car within 60° of the line from the ball to the opponents' goal (behind the ball).
+  - Driving toward own goal: car's ground speed points more than 0.3 toward own goal.
+  - Boost 0-5 = arrived with no boost.
+  - Lost within 3 s: the next touch was the other team's.
+- **First defender**: the other team touches the ball in their half (ball not deeper than 10 m into his half), and this player is his team's closest, goal-side, 5-30 m from the ball.
+  - Challenged = jumped within 15 m while closing in, or got within 3 m, inside 2 s. Otherwise Held.
+  - Result: won the ball / 50/50 / missed the ball (went for it, no touch; per Ryan's note, a dive that misses everything is its own result, not a "clean beat").
+  - Teammate behind = teammate closer to their own goal at that moment.
+- **Goal against positions**: West and teammate goal-side of the ball at the shot touch; West in the air; the defending team's last touch before the goal and which way it went.
+- Only West's team's first-touch and first-defender rows are written to the Sheet (keeps it small); the viewer still has them for all players.
+- Every 2v2 table shows Wins | Losses | All. Phones show Wins | Losses only.
+- Zen check (4 games): first touch forward 62%, lined up 82%, boost 0-5 at 12%.
+
 ## Decisions so far
 - Replay Lab = Replays (3D viewer) + Trends, visible to everyone. 1v1 first, twos later (West, teammate, opponents).
 - Trends: all games plus a Recent comparison (last 5/10/20/since focus, default 10), switching on at 15 games. Every number plays clips starting 5 s before. Timeline with a 5-game average and MMR.

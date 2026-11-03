@@ -3,7 +3,7 @@
 // Rules are deliberately simple and written out so they can be checked and improved; bump
 // ENGINE_VERSION whenever a rule changes so stored games can be recalculated.
 
-export const ENGINE_VERSION = 3;   // v2: kickoff goals · v3: kickoff approach per player, goal attack facts
+export const ENGINE_VERSION = 4;   // v2: kickoff goals · v3: kickoff approach per player, goal attack facts · v4: first touches, first defender, goal-against positions
 
 const GOAL_Y = 5120, THIRD = 1707, SUPERSONIC = 2200;
 const KMH = 0.036;                         // uu/s (cm/s) -> km/h
@@ -14,7 +14,7 @@ const PAST_RANGE = 2500;                   // "ball got past" only counts if the
 export const MOMENT_TYPES = {
   goal: 'Goal', shot: 'Shot', save: 'Save', kickoff: 'Kickoff', kickoffplayer: 'Kickoff approach', kickoffgoal: 'Kickoff goal', challenge: '50/50',
   turnover: 'Turnover', clear: 'Clear', past: 'Ball got past', demo: 'Demo',
-  doublecommit: 'Double commit', reset: 'Flip reset',
+  doublecommit: 'Double commit', reset: 'Flip reset', firsttouch: 'First touch', firstdef: 'First defender',
 };
 
 // [key, label, unit]  unit: '%' = share of active play time, 'n' = count, 'km/h', 'm', 'boost'
@@ -240,6 +240,78 @@ export function buildData(M) {
       defGoalSide: df ? df.goalSide : null, defDistGoal: df ? df.distGoal : null, defBoost: df ? df.boost : null });
   });
 
+  // ---- first touches (v4): a player's touch after the other team had the ball, or after 2 s without a team touch ----
+  // lined up = car within 60° of the line from the ball to the opponents' goal (behind the ball);
+  // direction = where the ball goes over the next 0.15 s, measured against the line to the opponents' goal.
+  const unit2 = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+  const headOf = c => { const x = c[3] / 1000, y = c[4] / 1000, z = c[5] / 1000, w = c[6] / 1000; return unit2(1 - 2 * (y * y + z * z), 2 * (x * y + w * z)); };
+  const angDeg = (a, b) => Math.round(Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1]))) * 180 / Math.PI);
+  touches.forEach((a, n) => {
+    if (kickoffTouch.has(a) || nearKickoff(a) || !active[a.f]) return;
+    const prev = touches[n - 1];
+    if (prev && prev.team === a.team && T[a.f] - T[prev.f] <= 2) return;
+    const k = a.k, c = pos(k, a.f), b = B[a.f]; if (!c || !b || c.length < 7) return;
+    const d = dir(P[k].team), goalY = d * GOAL_Y;
+    const toGoalB = unit2(-b[0], goalY - b[1]), carToBall = unit2(b[0] - c[0], b[1] - c[1]), toGoalC = unit2(-c[0], goalY - c[1]);
+    const lined = carToBall[0] * toGoalB[0] + carToBall[1] * toGoalB[1] > 0.5;
+    const h = headOf(c), facing = h[0] * toGoalC[0] + h[1] * toGoalC[1] > 0.5;
+    const v = P[k].vel && P[k].vel[a.f], vh = v ? Math.hypot(v[0], v[1]) : 0;
+    const movingBack = vh > 200 && (v[0] * toGoalC[0] + v[1] * toGoalC[1]) / vh < -0.3;
+    const cp = pos(k, frameAt(T[a.f] - 0.3)), turn = cp && cp.length >= 7 ? angDeg(headOf(cp), h) : null;
+    const wall = Math.abs(c[0]) > 3700 && c[2] > 150, surface = wall ? 'wall' : c[2] > 250 ? 'air' : 'ground';
+    const bv = BV[frameAt(T[a.f] + 0.15)] || [0, 0, 0], bvh = Math.hypot(bv[0], bv[1]);
+    const ang = bvh > 1 ? angDeg(unit2(bv[0], bv[1]), toGoalB) : 90;
+    const direction = bvh * KMH < 15 ? 'soft' : ang < 60 ? 'forward' : ang < 120 ? 'sideways' : 'backward';
+    const after = prev && prev.team !== a.team && T[a.f] - T[prev.f] <= 2 ? 'after opponent touch' : 'loose ball';
+    const next = touches[n + 1], lost = !!(next && next.team !== a.team && T[next.f] - T[a.f] < 3);
+    const shot = M.moments.some(s => (s.type === 'shot' || s.type === 'goal') && s.team === a.team && s.f > a.f && T[s.f] - T[a.f] <= 6);
+    const ga = goals.find(g => g.team !== a.team && g.f > a.f && T[g.f] - T[a.f] <= 10);
+    add('firsttouch', a.f, k, { team: a.team, direction, lined, facing, movingBack, turn, surface, after, lost, shotAfter: shot, goalAgainst10s: !!ga,
+      outcome: `${direction}${lost ? ' · other team got it' : ''}`, me: facts(k, a.f), ...ballFacts(a.f) });
+  });
+
+  // ---- first defender (v4): the opponent touches the ball in their half of the field (not deep in his own end)
+  // and this player is his team's closest, goal-side and 5-30 m away. Did he go at the ball (challenged) or hold?
+  // challenged = jumped within 15 m while closing in, or got within 3 m, inside 2 s.
+  [0, 1].forEach(team => {
+    const d = dir(team); let lastEv = -9;
+    touches.forEach(tc => {
+      if (tc.team === team || T[tc.f] - lastEv < 3 || kickoffTouch.has(tc) || nearKickoff(tc) || !active[tc.f]) return;
+      const i0 = tc.f, b = B[i0]; if (!b || b[1] * d > 1000) return;
+      const [k, kd] = nearestOf(team, i0); if (k < 0) return;
+      const c = pos(k, i0); if (!c || (c[1] - b[1]) * d > 0) return;
+      const dm = kd / 100; if (dm < 5 || dm > 30) return;
+      lastEv = T[i0];
+      const mate = P.findIndex((p, j) => p.team === team && j !== k), oc = mate >= 0 ? pos(mate, i0) : null;
+      const cover = mate < 0 ? null : !!(oc && oc[1] * d < c[1] * d);
+      let tChal = null;
+      for (let i = i0; i < N && T[i] <= T[i0] + 2; i++) {
+        const ci = pos(k, i); if (!ci || !B[i]) continue;
+        const dd = dist(ci, B[i]) / 100, ac = P[k].act ? P[k].act[i] || 0 : 0, pa = P[k].act && i ? P[k].act[i - 1] || 0 : 0;
+        if (((ac & 1) && !(pa & 1) && dd <= 15 && dd < dm - 1) || dd <= 3) { tChal = T[i]; break; }
+      }
+      const g = goals.find(x => x.team !== team && T[x.f] > T[i0] && T[x.f] <= T[i0] + 10);
+      let result = 'held';
+      if (tChal !== null) {
+        const myT = touches.find(t => t.k === k && T[t.f] >= tChal - 0.2 && T[t.f] <= tChal + 1.5);
+        result = !myT ? 'missed the ball' : touches.some(t => t.team !== team && Math.abs(T[t.f] - T[myT.f]) <= CHALLENGE_GAP) ? '50/50' : 'won the ball';
+      }
+      add('firstdef', i0, k, { team, choice: tChal === null ? 'Held' : 'Challenged', result, cover, distBallAtStart: Math.round(dm), goalAgainst10s: !!g,
+        other: tc.k, outcome: `${tChal === null ? 'held' : 'challenged · ' + result}${g ? ' · goal against' : ''}`, me: facts(k, i0), ...ballFacts(i0) });
+    });
+  });
+
+  // ---- goals (v4): where each defender was at the shot, and the defending team's last touch before the goal
+  moments.filter(m => m.type === 'goal').forEach(m => {
+    const S = m.team, before = touches.filter(t => t.f <= m.f), shot = [...before].reverse().find(t => t.team === S), sf = shot ? shot.f : m.f, sb = B[sf];
+    m.defenders = P.map((p, k) => p.team === S ? null : (() => { const c = pos(k, sf); return c && sb ? { k, goalSide: (c[1] - sb[1]) * dir(p.team) < 0, air: airborne(c), boost: p.boost[sf] } : null; })()).filter(Boolean);
+    const lastD = [...before].reverse().find(t => t.team !== S);
+    if (lastD) {
+      const v = BV[frameAt(T[lastD.f] + 0.15)] || [0, 0, 0], vh = Math.hypot(v[0], v[1]), toward = v[1] * dir(lastD.team) / (vh || 1);
+      m.lastDef = { k: lastD.k, secs: r1(T[m.f] - T[lastD.f]), direction: vh * KMH < 15 ? 'soft' : toward > 0.5 ? 'forward' : toward < -0.5 ? 'backward' : 'sideways' };
+    }
+  });
+
   moments.sort((a, b) => a.f - b.f);
 
   // ---- numbers per player ----
@@ -302,7 +374,11 @@ export function toTables(M, D, westIdx, info) {
     return o;
   });
   const f = (x, k) => (x && x[k] !== undefined && x[k] !== null ? x[k] : '');
-  const Moments = D.moments.map(m => ({
+  const keep = m => !(m.type === 'firsttouch' || m.type === 'firstdef') || m.team === west.team;
+  const yn = v => (v === true ? true : v === false ? false : '');
+  const defOf = (m, k) => (m.defenders || []).find(x => x.k === k);
+  const mate = M.players.findIndex((p, k) => k !== westIdx && p.team === west.team);
+  const Moments = D.moments.filter(keep).map(m => ({
     'Match date': info.date, 'Match time': M.meta.Date || '', Type: MOMENT_TYPES[m.type] || m.type, 'Game clock': fc(m.clock), 'Replay time (s)': Math.round(M.t[m.f] * 10) / 10,
     Player: m.player, Team: m.team === 0 || m.team === 1 ? teamLabel(m.team) : '', 'Is West': m.k === westIdx, 'West team': m.team === west.team,
     Outcome: m.outcome || '', 'Other player': m.otherName || '', Zone: f(m.me, 'zone') || m.zone || '',
@@ -314,6 +390,13 @@ export function toTables(M, D, westIdx, info) {
     'Boost used': m.boostUsed ?? '', 'Ball in his half after 1s': m.ballInHisHalf1s ?? '', 'Goal-side after 3s': m.goalSide3s ?? '', 'Got boost within 3s': m.gotBoost3s ?? '',
     'Attack started': m.attack ?? '', 'Attack seconds': m.attackSecs ?? '', 'Attack touches': m.attack ? m.attackTouches : '', 'Shot distance (m)': m.shotDist ?? '', 'Shot in the air': m.attack ? m.shotAir : '',
     'Defender goal-side': m.defGoalSide ?? '', 'Defender distance to goal (m)': m.defDistGoal ?? '', 'Defender boost': m.defBoost ?? '',
+    'Touch direction': m.direction ?? '', 'Lined up': yn(m.lined), 'Facing their goal': yn(m.facing), 'Driving toward own goal': yn(m.movingBack), 'Turn in last 0.3s (deg)': m.turn ?? '',
+    Surface: m.surface ?? '', 'Touch context': m.after ?? '', 'Lost within 3s': yn(m.lost), 'Shot within 6s': yn(m.shotAfter), 'Goal against within 10s': yn(m.goalAgainst10s),
+    'Challenge choice': m.type === 'firstdef' ? m.choice : '', 'Challenge result': m.type === 'firstdef' ? m.result : '', 'Teammate behind': yn(m.cover), 'Start distance to ball (m)': m.distBallAtStart ?? '',
+    'West goal-side at shot': m.type === 'goal' && m.team !== west.team ? yn((defOf(m, westIdx) || {}).goalSide) : '',
+    'Teammate goal-side at shot': m.type === 'goal' && m.team !== west.team && mate >= 0 ? yn((defOf(m, mate) || {}).goalSide) : '',
+    'West in the air at shot': m.type === 'goal' && m.team !== west.team ? yn((defOf(m, westIdx) || {}).air) : '',
+    'Last touch before (defending team)': m.lastDef && m.lastDef.k >= 0 ? M.players[m.lastDef.k].name : '', 'That touch went': m.lastDef ? m.lastDef.direction : '', 'Seconds from that touch to goal': m.lastDef ? m.lastDef.secs : '',
     'Ball speed (km/h)': m.ballKmh ?? '', 'Ball height (m)': m.ballHeight ?? '', 'Shot speed (km/h)': m.kmh ?? '', 'Seconds to goal': m.secsToGoal ?? '',
     'Engine version': D.version,
   }));
