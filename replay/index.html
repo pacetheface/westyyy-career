@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <title>Replay Lab · Westyyy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,800&family=Bungee&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
 /* Layout: one-screen review tool. 3D arena fills the stage, moments + tags rail on the right, transport + timeline underneath.
    Uses the Career Mode palette (arena night) so both pages feel like one app. Single deliberate dark theme. */
@@ -122,7 +122,7 @@ header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:10px ma
 .ballind span{position:absolute;inset:0;display:grid;place-items:center;font-weight:700;font-size:11px}
 
 /* start screen */
-.start{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#1c2460 0%,#0b1030 70%);overflow:auto}
+.start{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 40%,rgba(11,16,48,.55) 0%,rgba(11,16,48,.92) 75%);overflow:auto}
 .startbox{width:min(620px,100%);display:flex;flex-direction:column;gap:16px}
 .start h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,4vw,38px);margin:0;line-height:1.1}
 .start h1 span{color:var(--gold)}
@@ -527,77 +527,183 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x7fa6d6);
-scene.fog = new THREE.Fog(0x7fa6d6, 14000, 30000);
-const camera = new THREE.PerspectiveCamera(70, 1, 5, 60000);
-scene.add(new THREE.HemisphereLight(0xe8f1ff, 0x2a3a2a, 1.4));
-const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3000, 8000, 2000); scene.add(sun);
+// ---- look: a night stadium like the game's arenas (dark sky, crowd stands, light rigs, hexagon glass) ----
+function cvTex(w, h, draw, rep) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h);
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
+  if (rep) { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; }
+  return tx;
+}
+scene.background = cvTex(4, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#03050f'); gr.addColorStop(.55, '#0b1433'); gr.addColorStop(1, '#1a2b5c'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+scene.fog = new THREE.Fog(0x0e1838, 18000, 46000);
+const camera = new THREE.PerspectiveCamera(70, 1, 5, 80000);
+scene.add(new THREE.HemisphereLight(0xd6e4ff, 0x1c2a1c, 1.25));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(2500, 9000, -3000); scene.add(sun);
+const fill = new THREE.DirectionalLight(0x9cc4ff, .5); fill.position.set(-3000, 5000, 6000); scene.add(fill);
 const TEAMCOL = [0x2fa8ff, 0xff8a1f];
+const TEAMHEX = ['#3fb2ff', '#ff922e'];
 
 // Rocket League units: x side to side, y goal to goal, z up.  three.js: (x, z, y).
 const V = (x, y, z) => new THREE.Vector3(x, z, y);
 const X = 4096, Y = 5120, C = 1152, WALL = 2044, GW = 893, GH = 642, GD = 880;
+
+// pitch: mowing stripes, team-coloured lines per half, glow at each end
 function floorTexture() {
-  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 1280;
-  const g = cv.getContext('2d'); const s = 1024/8192;
-  for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#2f6b3c' : '#2a6136'; g.fillRect(0, i*80, 1024, 80); }
-  g.fillStyle = 'rgba(40,140,255,0.22)'; g.fillRect(0, 0, 1024, 640);
-  g.fillStyle = 'rgba(255,128,30,0.22)'; g.fillRect(0, 640, 1024, 640);
-  g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 6;
-  g.beginPath(); g.moveTo(0, 640); g.lineTo(1024, 640); g.stroke();
-  g.beginPath(); g.arc(512, 640, 1000*s, 0, Math.PI*2); g.stroke();
-  g.strokeRect(512-1500*s, 0, 3000*s, 1100*s); g.strokeRect(512-1500*s, 1280-1100*s, 3000*s, 1100*s);
-  g.lineWidth = 10; g.strokeStyle = 'rgba(255,255,255,.9)'; g.strokeRect(4, 4, 1016, 1272);
-  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8;
-  tx.repeat.set(1/8192, 1/10240); tx.offset.set(.5, .5); return tx;
+  const W = 2048, H = 2560, s = W / 8192;            // 0.25 px per unit
+  return cvTex(W, H, (g) => {
+    for (let i = 0; i < 20; i++) { g.fillStyle = i % 2 ? '#2d6a30' : '#357a37'; g.fillRect(0, i * H / 20, W, H / 20); }
+    for (let k = 0; k < 26000; k++) { g.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.035)'; g.fillRect(Math.random() * W, Math.random() * H, 3, 3); }
+    const end = (y0, y1, c) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, c); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, Math.min(y0, y1), W, Math.abs(y1 - y0)); };
+    end(0, H * .42, 'rgba(30,130,255,.42)'); end(H, H * .58, 'rgba(255,120,20,.40)');
+    const line = (col, wpx, glow) => { g.strokeStyle = col; g.lineWidth = wpx; g.shadowColor = col; g.shadowBlur = glow; };
+    const cx = W / 2, cy = H / 2;
+    // boundary (octagon) per half
+    const pts = [[-X + C, -Y], [X - C, -Y], [X, -Y + C], [X, Y - C], [X - C, Y], [-X + C, Y], [-X, Y - C], [-X, -Y + C]].map(([x, y]) => [cx + x * s, cy + y * s]);
+    const half = (top) => { g.save(); g.beginPath(); g.rect(0, top ? 0 : cy, W, cy); g.clip(); line(top ? '#56b8ff' : '#ffa24a', 14, 18);
+      g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.stroke();
+      // goal box + arc
+      const yy = top ? 0 : H, d = top ? 1 : -1, bw = 3000 * s, bd = 1250 * s;
+      g.beginPath(); g.moveTo(cx - bw / 2, yy); g.lineTo(cx - bw / 2, yy + d * bd); g.lineTo(cx + bw / 2, yy + d * bd); g.lineTo(cx + bw / 2, yy); g.stroke();
+      g.beginPath(); g.arc(cx, yy + d * bd, 700 * s, top ? 0 : Math.PI, top ? Math.PI : 2 * Math.PI); g.stroke();
+      // corner chevrons toward the goal
+      for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) { const x0 = cx + sx * (X - 900) * s, y0 = yy + d * (1700 + k * 260) * s; g.beginPath(); g.moveTo(x0 - 70 * s * sx * 0 - 90 * s, y0 + d * 80 * s); g.lineTo(x0, y0 - d * 40 * s); g.lineTo(x0 + 90 * s, y0 + d * 80 * s); g.stroke(); }
+      g.restore(); };
+    half(true); half(false);
+    line('rgba(255,255,255,.92)', 12, 10);
+    g.beginPath(); g.moveTo(pts[6][0], cy); g.lineTo(pts[3][0], cy); g.stroke();
+    g.beginPath(); g.arc(cx, cy, 1000 * s, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(cx, cy, 60 * s, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill();
+    g.shadowBlur = 0;
+  });
+}
+// hexagon pattern for the glass walls, ceiling and goal nets (white on transparent, tinted per team by the material)
+const hexTex = cvTex(512, 444, (g, w, h) => {
+  const r = 64, hw = r * Math.sqrt(3) / 2; g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 4;
+  for (let row = -1; row < 6; row++) for (let col = -1; col < 6; col++) {
+    const x = col * r * 1.5, y = row * hw * 2 + (col % 2 ? hw : 0);
+    g.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; g.lineTo(x + r * Math.cos(a), y + r * Math.sin(a)); } g.closePath(); g.stroke();
+  }
+}, true);
+const glassMat = team => new THREE.MeshBasicMaterial({ map: hexTex, color: TEAMCOL[team], transparent: true, opacity: .32, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+const tintMat = team => new THREE.MeshBasicMaterial({ color: TEAMCOL[team], transparent: true, opacity: .045, side: THREE.DoubleSide, depthWrite: false });
+const stripMat = team => new THREE.MeshBasicMaterial({ color: TEAMCOL[team], toneMapped: false });
+// a wall panel between two floor points, from height z0 to z1, with UVs in world units so the hexes keep their size
+function panel(a, b, z0, z1, mat, uScale = 700) {
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]), g = new THREE.BufferGeometry();
+  const p = [V(a[0], a[1], z0), V(b[0], b[1], z0), V(b[0], b[1], z1), V(a[0], a[1], z1)];
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p.flatMap(v => [v.x, v.y, v.z]), 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, z0 / uScale, L / uScale, z0 / uScale, L / uScale, z1 / uScale, 0, z1 / uScale], 2));
+  g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, mat); scene.add(m); return m;
 }
 const oct = [[-X+C,-Y],[X-C,-Y],[X,-Y+C],[X,Y-C],[X-C,Y],[-X+C,Y],[-X,Y-C],[-X,-Y+C]];
 {
   const sh = new THREE.Shape(); oct.forEach(([x,y],i) => i ? sh.lineTo(x,-y) : sh.moveTo(x,-y));
-  const fl = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: .95 }));
+  const ft = floorTexture(); ft.repeat.set(1/8192, 1/10240); ft.offset.set(.5, .5);
+  const fl = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshStandardMaterial({ map: ft, roughness: .9 }));
   fl.rotation.x = -Math.PI/2; scene.add(fl);
-  const out = new THREE.Mesh(new THREE.CircleGeometry(30000, 48), new THREE.MeshStandardMaterial({ color: 0x1b2430, roughness: 1 }));
-  out.rotation.x = -Math.PI/2; out.position.y = -4; scene.add(out);
+  // ceiling: hexagon glass seen only from inside the arena (invisible from cameras above it)
+  const ct = hexTex.clone(); ct.needsUpdate = true; ct.repeat.set(1 / 700, 1 / 700);
+  const ceil = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ map: ct, color: 0x8fb8ff, transparent: true, opacity: .16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.FrontSide }));
+  ceil.rotation.x = Math.PI/2; ceil.position.y = WALL; scene.add(ceil);
 }
-const wallMat = new THREE.MeshBasicMaterial({ color: 0xbfd8ff, transparent: true, opacity: .06, side: THREE.DoubleSide, depthWrite: false });
-const edgeMat = new THREE.LineBasicMaterial({ color: 0xdbe8ff, transparent: true, opacity: .45 });
-function quad(a, b, z0, z1) {
-  const g = new THREE.BufferGeometry().setFromPoints([V(a[0],a[1],z0), V(b[0],b[1],z0), V(b[0],b[1],z1), V(a[0],a[1],z0), V(b[0],b[1],z1), V(a[0],a[1],z1)]);
-  scene.add(new THREE.Mesh(g, wallMat));
-}
-for (let i = 0; i < 8; i++) {
-  const a = oct[i], b = oct[(i+1)%8];
-  if (i === 0 || i === 4) {
-    const l = [-GW, a[1]], r = [GW, a[1]]; const [p, q] = a[0] < b[0] ? [l, r] : [r, l];
-    quad(a, p, 0, WALL); quad(q, b, 0, WALL); quad(p, q, GH, WALL);
-  } else quad(a, b, 0, WALL);
-}
+// walls: split at the halfway line so each half glows in its team's colour; light strips along the base and the top
 {
-  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(oct.concat([oct[0]]).map(([x,y]) => V(x,y,WALL))), edgeMat));
-  const segs = []; oct.forEach(([x,y]) => segs.push(V(x,y,0), V(x,y,WALL)));
-  scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segs), edgeMat));
+  const segs = [];
+  for (let i = 0; i < 8; i++) {
+    const a = oct[i], b = oct[(i+1)%8];
+    if (i === 0 || i === 4) { const l = [-GW, a[1]], r = [GW, a[1]]; const [p, q] = a[0] < b[0] ? [l, r] : [r, l]; segs.push([a, p, 0], [q, b, 0], [p, q, GH]); }
+    else if ((a[1] < 0) !== (b[1] < 0)) { const m = [a[0], 0]; segs.push([a, m, 0], [m, b, 0]); }
+    else segs.push([a, b, 0]);
+  }
+  segs.forEach(([a, b, z0]) => {
+    const team = (a[1] + b[1]) / 2 < 0 ? 0 : 1;
+    panel(a, b, z0, WALL, glassMat(team)); panel(a, b, z0, WALL, tintMat(team));
+    if (!z0) { panel(a, b, 0, 70, new THREE.MeshStandardMaterial({ color: 0x141a2a, roughness: .5, metalness: .4, side: THREE.DoubleSide })); panel(a, b, 70, 92, stripMat(team)); }
+    panel(a, b, WALL - 26, WALL, stripMat(team));
+  });
+  // corner pillars
+  oct.forEach(([x, y]) => { const team = y < 0 ? 0 : 1, p = new THREE.Mesh(new THREE.BoxGeometry(18, WALL, 18), stripMat(team)); p.position.copy(V(x, y, WALL / 2)); scene.add(p); });
 }
-function goal(sign, col) {
-  const y0 = sign*Y, y1 = sign*(Y+GD);
-  const m = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .8 });
-  const bar = (w, h, dd, x, z, y) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), m); b.position.copy(V(x, y, z)); scene.add(b); };
-  bar(24, GH, 24, -GW, GH/2, y0); bar(24, GH, 24, GW, GH/2, y0); bar(GW*2+24, 24, 24, 0, GH, y0);
-  const net = new THREE.Mesh(new THREE.BoxGeometry(GW*2, GH, GD), new THREE.MeshBasicMaterial({ color: col, wireframe: true, transparent: true, opacity: .25 }));
-  net.position.copy(V(0, (y0+y1)/2, GH/2)); scene.add(net);
-  const gf = new THREE.Mesh(new THREE.PlaneGeometry(GW*2, GD), new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: .35 }));
-  gf.rotation.x = -Math.PI/2; gf.position.copy(V(0, (y0+y1)/2, 1)); scene.add(gf);
+// stadium bowl outside the arena: stands full of fans, a back wall with screens, and a roof ring with light bars
+{
+  const crowd = cvTex(1024, 512, (g, w, h) => {
+    g.fillStyle = '#10142a'; g.fillRect(0, 0, w, h);
+    const rows = 22, rh = h / rows;
+    for (let r = 0; r < rows; r++) {
+      g.fillStyle = r % 2 ? '#181d38' : '#141932'; g.fillRect(0, r * rh, w, rh);
+      for (let x = 0; x < w; x += 9 + Math.random() * 5) {
+        if (Math.random() < .25) continue;
+        const hue = Math.random() < .4 ? 212 : Math.random() < .6 ? 24 : Math.random() * 360, l = 22 + Math.random() * 26;
+        g.fillStyle = `hsl(${hue},${25 + Math.random() * 35}%,${l}%)`; g.fillRect(x, r * rh + 6 + Math.random() * 3, 6, rh - 10);
+        g.fillStyle = `hsl(28,25%,${30 + Math.random() * 20}%)`; g.fillRect(x + 1, r * rh + 2 + Math.random() * 3, 4, 5);
+      }
+      g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, (r + 1) * rh - 2, w, 2);
+    }
+  }, true);
+  const lights = cvTex(512, 64, (g, w, h) => { g.fillStyle = '#0c0f1c'; g.fillRect(0, 0, w, h); for (let x = 6; x < w; x += 14) for (let y = 10; y < h - 6; y += 14) { g.fillStyle = 'rgba(255,255,245,.95)'; g.beginPath(); g.arc(x, y, 4.2, 0, 7); g.fill(); } }, true);
+  const screens = cvTex(1024, 128, (g, w, h) => { g.fillStyle = '#070a16'; g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 256) { const gr = g.createLinearGradient(x, 0, x + 256, 0); gr.addColorStop(0, '#0f3f8f'); gr.addColorStop(.5, '#08112e'); gr.addColorStop(1, '#8f3f0f'); g.fillStyle = gr; g.fillRect(x + 8, 14, 240, h - 28);
+      g.fillStyle = 'rgba(255,255,255,.18)'; for (let k = 0; k < 5; k++) g.fillRect(x + 30 + k * 42, 40, 26, h - 80); } }, true);
+  // superellipse ring around the arena; off = distance outside the arena
+  const ringPt = (a, off) => { const A = X + off, B = Y + GD + off, c = Math.cos(a), s = Math.sin(a), e = 2 / 6; return [A * Math.sign(c) * Math.abs(c) ** e, B * Math.sign(s) * Math.abs(s) ** e]; };
+  const band = (off0, z0, off1, z1, mat, uLen, n = 128) => {
+    const pos = [], uv = [], idx = []; let L = 0, prev = null;
+    for (let k = 0; k <= n; k++) {
+      const a = k / n * Math.PI * 2, p0 = ringPt(a, off0), p1 = ringPt(a, off1);
+      if (prev) L += Math.hypot(p0[0] - prev[0], p0[1] - prev[1]); prev = p0;
+      const v0 = V(p0[0], p0[1], z0), v1 = V(p1[0], p1[1], z1);
+      pos.push(v0.x, v0.y, v0.z, v1.x, v1.y, v1.z); uv.push(L / uLen, 0, L / uLen, 1);
+      if (k) { const j = (k - 1) * 2; idx.push(j, j + 1, j + 2, j + 1, j + 3, j + 2); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat); scene.add(m); return m;
+  };
+  const crowdMat = new THREE.MeshBasicMaterial({ map: crowd, side: THREE.DoubleSide, color: 0x8f9cc4 });
+  band(350, -10, 350, 650, new THREE.MeshStandardMaterial({ color: 0x0b0f1e, side: THREE.DoubleSide }), 3000);            // barrier below the stands
+  band(350, 650, 350, 700, new THREE.MeshBasicMaterial({ color: 0x4aa8ff, side: THREE.DoubleSide, toneMapped: false }), 3000);
+  band(350, 700, 4300, 4300, crowdMat, 7000);                                                                              // lower + upper tiers
+  band(4300, 4300, 4700, 5600, new THREE.MeshBasicMaterial({ map: screens, side: THREE.DoubleSide }), 4200);             // screens ring
+  band(4700, 5600, 2300, 6300, new THREE.MeshStandardMaterial({ color: 0x0a0d1a, side: THREE.DoubleSide, metalness: .5, roughness: .6 }), 3000); // roof
+  band(2300, 6300, 2500, 5900, new THREE.MeshBasicMaterial({ map: lights, side: THREE.DoubleSide, toneMapped: false }), 1400);   // light bars on the roof edge
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(40000, 48), new THREE.MeshStandardMaterial({ color: 0x0a0e1c, roughness: 1 }));
+  ground.rotation.x = -Math.PI/2; ground.position.y = -12; scene.add(ground);
 }
-goal(-1, TEAMCOL[0]); goal(1, TEAMCOL[1]);
+// goals: glowing frame, hexagon net inside, lit floor
+function goal(sign, team) {
+  const col = TEAMCOL[team], y0 = sign*Y, y1 = sign*(Y+GD);
+  const frame = new THREE.MeshStandardMaterial({ color: 0x1a2236, metalness: .6, roughness: .35 });
+  const glow = stripMat(team);
+  const box = (w, h, dd, x, z, y, m) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, dd), m); b.position.copy(V(x, y, z)); scene.add(b); return b; };
+  box(70, GH + 70, 90, -GW - 35, (GH + 70) / 2, y0, frame); box(70, GH + 70, 90, GW + 35, (GH + 70) / 2, y0, frame); box(GW * 2 + 140, 70, 90, 0, GH + 35, y0, frame);
+  box(16, GH, 16, -GW + 4, GH / 2, y0 - sign * 46, glow); box(16, GH, 16, GW - 4, GH / 2, y0 - sign * 46, glow); box(GW * 2, 16, 16, 0, GH - 4, y0 - sign * 46, glow);
+  const net = glassMat(team); net.opacity = .55;
+  panel([-GW, y1], [GW, y1], 0, GH, net, 300); panel([-GW, y0], [-GW, y1], 0, GH, net, 300); panel([GW, y0], [GW, y1], 0, GH, net, 300);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(GW * 2, GD), net); top.rotation.x = Math.PI / 2; top.position.copy(V(0, (y0 + y1) / 2, GH)); scene.add(top);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(GW * 2, GD), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .45, depthWrite: false, toneMapped: false }));
+  fl.rotation.x = -Math.PI/2; fl.position.copy(V(0, (y0+y1)/2, 2)); scene.add(fl);
+  const gl = new THREE.Mesh(new THREE.PlaneGeometry(GW * 2, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }));
+  gl.rotation.x = -Math.PI/2; gl.position.copy(V(0, y0, 3)); scene.add(gl);
+  const lamp = new THREE.PointLight(col, 1.6, 2600, 1.2); lamp.position.copy(V(0, y0 + sign * GD * .5, GH * .8)); scene.add(lamp);
+}
+goal(-1, 0); goal(1, 1);
 
-// ball + helpers that keep it easy to find
+// ball: light-grey hexagon panels with dark seams, slight glow so it reads on any background
 function ballTexture() {
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d');
-  g.fillStyle = '#eef1f4'; g.fillRect(0,0,512,256); g.fillStyle = '#5b6573';
-  for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) { const x = (c + (r%2)*.5) * 64, y = 26 + r*51; g.beginPath(); for (let k = 0; k < 6; k++) { const a = k*Math.PI/3; g.lineTo(x + 13*Math.cos(a), y + 11*Math.sin(a)); } g.fill(); }
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  return cvTex(1024, 512, (g, w, h) => {
+    g.fillStyle = '#c9ced6'; g.fillRect(0, 0, w, h);
+    const r = 34, hw = r * Math.sqrt(3) / 2;
+    for (let row = -1; row < h / (hw * 2) + 1; row++) for (let col = -1; col < w / (r * 1.5) + 1; col++) {
+      const x = col * r * 1.5, y = row * hw * 2 + (col % 2 ? hw : 0);
+      g.beginPath(); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3; g.lineTo(x + (r - 3) * Math.cos(a), y + (r - 3) * Math.sin(a)); } g.closePath();
+      g.fillStyle = (row + col) % 3 === 0 ? '#8d96a3' : (row * 7 + col) % 5 === 0 ? '#e9ecf0' : '#bfc5ce'; g.fill();
+      g.strokeStyle = '#2c323c'; g.lineWidth = 4; g.stroke();
+    }
+    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,255,255,.25)'); gr.addColorStop(.5, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(0,0,0,.2)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  });
 }
 const ballTex = ballTexture();
-const ball = new THREE.Mesh(new THREE.SphereGeometry(92.75, 40, 28), new THREE.MeshStandardMaterial({ map: ballTex, emissiveMap: ballTex, emissive: 0xffffff, emissiveIntensity: .6, roughness: .45 }));
+const ball = new THREE.Mesh(new THREE.SphereGeometry(92.75, 48, 32), new THREE.MeshStandardMaterial({ map: ballTex, emissiveMap: ballTex, emissive: 0xffffff, emissiveIntensity: .35, roughness: .35, metalness: .25 }));
 scene.add(ball);
 const ghost = new THREE.Mesh(new THREE.SphereGeometry(97, 24, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .28, depthTest: false, depthWrite: false }));
 ghost.renderOrder = 20; scene.add(ghost);
@@ -616,36 +722,60 @@ drop.frustumCulled = false; scene.add(drop);
 [ball, ghost, shadow, trail, drop].forEach(o => o.visible = false);
 
 function label(text, col) {
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d');
-  g.font = '700 54px "Chakra Petch", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 10; g.strokeStyle = 'rgba(0,0,0,.7)'; g.strokeText(text, 256, 48); g.fillStyle = col; g.fillText(text, 256, 48);
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 112; const g = cv.getContext('2d');
+  g.font = 'italic 800 52px "Barlow Condensed", "Chakra Petch", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const tw = Math.min(480, g.measureText(text.toUpperCase()).width + 56), x0 = 256 - tw / 2;
+  g.fillStyle = 'rgba(6,10,26,.78)'; g.beginPath(); g.moveTo(x0 + 16, 16); g.lineTo(x0 + tw, 16); g.lineTo(x0 + tw - 16, 92); g.lineTo(x0, 92); g.closePath(); g.fill();
+  g.fillStyle = col; g.fillRect(x0 + 6, 88, tw - 12, 6);
+  g.fillStyle = '#fff'; g.fillText(text.toUpperCase(), 256, 54);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false, transparent: true }));
-  sp.scale.set(320, 60, 1); sp.renderOrder = 10; return sp;
+  sp.scale.set(300, 66, 1); sp.renderOrder = 10; return sp;
 }
+try { document.fonts.load('italic 800 52px "Barlow Condensed"'); } catch (e) {}
 const TRAIL_SECS = 10, CAR_TRAIL = 720, SUPERSONIC = 2200, LEAD = 5;   // LEAD: seconds shown before every moment
+// a low, wedge-shaped battle car (x forward, y up, z sideways), built from an extruded side profile
+const CAR_PROFILE = [[-60,-9],[54,-9],[64,-4],[63,3],[50,8],[14,13],[-4,29],[-34,30],[-50,19],[-62,16],[-62,-2]];
+const CAB_PROFILE = [[12,13.5],[-4,28],[-32,29],[-47,19.5]];
+function extrudeProfile(pts, depth, bevel) {
+  const sh = new THREE.Shape(); pts.forEach(([x, y], i) => i ? sh.lineTo(x, y) : sh.moveTo(x, y));
+  const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2 });
+  g.translate(0, 0, -depth / 2); return g;
+}
 function makeCar(team, name) {
-  const g = new THREE.Group(), col = TEAMCOL[team];
-  const body = new THREE.MeshStandardMaterial({ color: col, roughness: .4, metalness: .3 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x111820, roughness: .3, metalness: .5 });
+  const g = new THREE.Group(), col = TEAMCOL[team], c3 = new THREE.Color(col);
+  const body = new THREE.MeshStandardMaterial({ color: col, roughness: .32, metalness: .55 });
+  const trim = new THREE.MeshStandardMaterial({ color: c3.clone().multiplyScalar(.35), roughness: .4, metalness: .6 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x0c1018, roughness: .5, metalness: .4 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0a1426, roughness: .1, metalness: .9, emissive: 0x0b2a55, emissiveIntensity: .35 });
+  const lightM = new THREE.MeshBasicMaterial({ color: 0xeaf6ff, toneMapped: false });
+  const tailM = new THREE.MeshBasicMaterial({ color: team ? 0xff6a00 : 0x2aa0ff, toneMapped: false });
   const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
-  add(new THREE.BoxGeometry(118, 24, 82), body, 10, 2, 0);
-  const nose = add(new THREE.BoxGeometry(34, 14, 78), body, 72, -3, 0); nose.rotation.z = -.25;
-  add(new THREE.BoxGeometry(54, 18, 66), dark, -4, 22, 0);
-  add(new THREE.BoxGeometry(10, 5, 84), dark, -46, 30, 0);
-  const wg = new THREE.CylinderGeometry(14, 14, 12, 16); wg.rotateX(Math.PI/2);
-  [[46,40],[46,-40],[-28,40],[-28,-40]].forEach(([x,z]) => add(wg, dark, x, -3, z));
-  const flame = add(new THREE.ConeGeometry(8, 42, 10), new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: .7 }), -70, 4, 0);
-  flame.rotation.z = Math.PI/2; flame.visible = false;
+  add(extrudeProfile(CAR_PROFILE, 70, 4), body, 0, 0, 0);
+  add(extrudeProfile(CAB_PROFILE, 74, 1.5), glass, 0, 0, 0);
+  add(new THREE.BoxGeometry(110, 6, 84), trim, 0, -7, 0);                                   // side skirts
+  add(new THREE.BoxGeometry(10, 3, 86), dark, -58, 24, 0);                                  // spoiler wing
+  [-30, 30].forEach(z => add(new THREE.BoxGeometry(6, 9, 3), dark, -56, 20, z));           // spoiler legs
+  [-26, 26].forEach(z => add(new THREE.BoxGeometry(3, 3, 12), lightM, 63.5, 1, z));         // headlights
+  [-30, 30].forEach(z => add(new THREE.BoxGeometry(2, 4, 14), tailM, -64, 10, z));          // tail lights
+  add(new THREE.BoxGeometry(70, 1.2, 72), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .35, toneMapped: false }), 4, -11, 0); // underglow
+  const tyre = new THREE.CylinderGeometry(15, 15, 13, 24); tyre.rotateX(Math.PI/2);
+  const rim = new THREE.CylinderGeometry(8.5, 8.5, 14, 12); rim.rotateX(Math.PI/2);
+  const rimM = new THREE.MeshStandardMaterial({ color: 0xb9c2cf, metalness: .9, roughness: .25 });
+  [[42,41],[42,-41],[-36,43],[-36,-43]].forEach(([x,z]) => { add(tyre, dark, x, -4, z); add(rim, rimM, x, -4, z); });
+  // boost flame: an outer orange and an inner yellow-white cone (scale.y = length)
+  const flame = new THREE.Group(); flame.position.set(-64, 6, 0); flame.rotation.z = Math.PI / 2;
+  const cone = (r, l, c, o) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, l, 14), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); m.position.y = l / 2; flame.add(m); };
+  cone(11, 58, 0xff7a1a, .75); cone(6, 34, 0xfff1b0, .95); flame.visible = false; g.add(flame);
   // supersonic streaks (white lines behind the car, like the in-game effect)
   const sonic = new THREE.Group();
-  const sm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .55 });
-  [[16, 34], [4, -34], [28, 0]].forEach(([y, z]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(70, 1.5, 1.5), sm); b.position.set(-90, y, z); sonic.add(b); });
+  const sm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .6, toneMapped: false });
+  [[18, 36], [6, -36], [30, 0], [-4, 20]].forEach(([y, z]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(90, 1.5, 1.5), sm); b.position.set(-110, y, z); sonic.add(b); });
   sonic.visible = false; g.add(sonic);
   // flip-reset indicator: a flashing ring under the car
   const reset = new THREE.Mesh(new THREE.RingGeometry(70, 86, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
   reset.rotation.x = -Math.PI / 2; reset.position.set(10, -22, 0); reset.visible = false; g.add(reset);
   const holder = new THREE.Group(); holder.add(g);
-  const lb = label(short(name), team ? '#ffc79b' : '#a9d8ff');
+  const lb = label(short(name), TEAMHEX[team]);
   // trail: where the car came from over the last TRAIL_SECS seconds, fading out with age
   const tg = new THREE.BufferGeometry();
   tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(CAR_TRAIL * 3), 3));
@@ -697,16 +827,23 @@ function boot(match) {
   buildMeters();
   posC = P.map(() => new THREE.Vector3()); qC = P.map(() => new THREE.Quaternion()); lastDir = P.map(() => new THREE.Vector3(0, 0, 1));
   // boost pads with pickup state per frame
-  const padM = new THREE.MeshStandardMaterial({ color: 0xffb020, emissive: 0xff9a00, emissiveIntensity: .7 });
-  const offM = new THREE.MeshStandardMaterial({ color: 0x3a3f4a });
-  const baseM = new THREE.MeshStandardMaterial({ color: 0x333a44 });
+  const padM = new THREE.MeshBasicMaterial({ color: 0xffb52e, toneMapped: false });
+  const offM = new THREE.MeshStandardMaterial({ color: 0x2a2f3c, roughness: .6 });
+  const baseM = new THREE.MeshStandardMaterial({ color: 0x1a1f2e, metalness: .5, roughness: .4 });
+  const ringM = new THREE.MeshBasicMaterial({ color: 0xff9a1a, toneMapped: false });
+  const beamM = new THREE.MeshBasicMaterial({ color: 0xffa630, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
   padObjs = []; padState = [];
   (M.pads || []).forEach(p => {
     const o = {};
     if (p.big) {
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(160, 160, 6, 24), baseM); b.position.copy(V(p.x, p.y, 3)); matchGroup.add(b);
-      o.orb = new THREE.Mesh(new THREE.SphereGeometry(42, 16, 12), padM); o.orb.position.copy(V(p.x, p.y, 70)); matchGroup.add(o.orb);
-    } else { o.disc = new THREE.Mesh(new THREE.CylinderGeometry(70, 70, 5, 18), padM); o.disc.position.copy(V(p.x, p.y, 3)); matchGroup.add(o.disc); o.on = padM; o.off = offM; }
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(170, 185, 10, 32), baseM); b.position.copy(V(p.x, p.y, 5)); matchGroup.add(b);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(150, 8, 8, 40), ringM); ring.rotation.x = Math.PI / 2; ring.position.copy(V(p.x, p.y, 11)); matchGroup.add(ring);
+      o.orb = new THREE.Mesh(new THREE.IcosahedronGeometry(46, 1), padM); o.orb.position.copy(V(p.x, p.y, 90)); matchGroup.add(o.orb);
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(120, 150, 260, 24, 1, true), beamM); beam.position.set(0, 40, 0); o.orb.add(beam);   // light column, hidden with the orb
+    } else {
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(78, 84, 6, 20), baseM); b.position.copy(V(p.x, p.y, 3)); matchGroup.add(b);
+      o.disc = new THREE.Mesh(new THREE.CylinderGeometry(52, 52, 5, 18), padM); o.disc.position.copy(V(p.x, p.y, 7)); matchGroup.add(o.disc); o.on = padM; o.off = offM;
+    }
     padObjs.push(o);
     const st = new Uint8Array(N).fill(1); let cur = 1, k = 0;
     for (let i = 0; i < N; i++) { while (k < p.ev.length && p.ev[k][0] <= i) { cur = p.ev[k][1]; k++; } st[i] = cur; }
@@ -803,7 +940,7 @@ function setCam(id) {
   const isP = id.startsWith('p');
   $('boostEl').hidden = !isP; $('ballcamBtn').hidden = !isP; $('ballcamChip').hidden = !isP;
   $('metersL').hidden = $('metersR').hidden = isP;
-  if (id === 'stadium') { camera.position.set(0, 4200, -9600); camera.lookAt(0, 0, -600); camera.fov = hfovToV(100, camera.aspect); camera.updateProjectionMatrix(); }
+  if (id === 'stadium') { camera.position.set(0, 5300, -8300); camera.lookAt(0, 0, -300); camera.fov = hfovToV(100, camera.aspect); camera.updateProjectionMatrix(); }
   if (id === 'orbit') { const tg = ball.visible ? ball.position.clone() : new THREE.Vector3(); controls.target.copy(tg); camera.position.copy(tg).add(new THREE.Vector3(0, 1400, -2200)); camera.fov = hfovToV(100, camera.aspect); camera.updateProjectionMatrix(); }
 }
 function cycleBallcam() {
